@@ -1,0 +1,83 @@
+[build-system]
+requires = ["setuptools"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "tradegraph"
+version = "0.1.0"
+description = "Adaptive trade compliance workspace with LangGraph orchestration"
+readme = "README.md"
+requires-python = "==3.11.*"
+dependencies = [
+    "alembic==1.18.5",
+    "fastapi==0.140.0",
+    "httpx==0.28.1",
+    "langgraph>=1.0.2,<1.1.0",
+    "networkx==3.5",
+    "pydantic==2.13.4",
+    "pydantic-settings==2.14.2",
+    "PyYAML==6.0.3",
+    "SQLAlchemy==2.0.51",
+    "uvicorn[standard]==0.51.0",
+    "python-multipart==0.0.20",
+    "PyJWT[crypto]==2.10.1",
+    "pypdf==5.4.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "httpx==0.28.1",
+    "mypy==1.15.0",
+    "pytest==9.1.1",
+    "pytest-cov==7.1.0",
+    "ruff==0.16.0",
+    "types-PyYAML==6.0.12.20241230",
+]
+postgres = [
+    "psycopg[binary]>=3.2.0,<4",
+]
+
+[tool.setuptools.packages.find]
+include = ["backend*"]
+
+[tool.pytest.ini_options]
+addopts = "--strict-config --strict-markers --cov=backend.app --cov-report=term-missing --cov-fail-under=70"
+testpaths = ["backend/tests"]
+
+[tool.coverage.run]
+branch = true
+source = ["backend.app"]
+
+[tool.coverage.report]
+exclude_also = [
+    "if TYPE_CHECKING:",
+    "if __name__ == .__main__.:",
+    "raise NotImplementedError",
+]
+
+[tool.ruff]
+target-version = "py311"
+line-length = 100
+extend-exclude = [
+    "Credit-Card-Fraud-Detection",
+    "Fraud Detection",
+    "third_party",
+]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "SIM", "RUF"]
+
+[tool.ruff.lint.isort]
+known-first-party = ["backend"]
+
+[tool.ruff.lint.per-file-ignores]
+"scripts/**/*.py" = ["E402"]
+
+[tool.mypy]
+python_version = "3.11"
+strict = true
+warn_unreachable = true
+pretty = true
+[[tool.mypy.overrides]]
+module = ["langgraph.*", "langgraph", "networkx", "networkx.*"]
+ignore_missing_imports = true

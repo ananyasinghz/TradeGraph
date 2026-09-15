@@ -1,0 +1,57 @@
+{
+  "source_key": "cbic_notification_2026_q3",
+  "title": "Archived CBIC-style customs notice excerpt (Q3 2026 prototype)",
+  "publisher": "Central Board of Indirect Taxes and Customs (illustrative archive)",
+  "url": "https://example.invalid/tradegraph/archives/cbic-2026-q3",
+  "notice_id": "TG-CBIC-2026-Q3-001",
+  "effective_from": "2026-07-01",
+  "retrieved_at": "2026-09-01T10:00:00+00:00",
+  "disclaimer": "Prototype archive only — not an official CBIC publication.",
+  "corridor": { "origin": "BD", "destination": "IN" },
+  "rates": [
+    {
+      "hs_code": "6109.90",
+      "origin": "BD",
+      "destination": "IN",
+      "rate": 9.0,
+      "rate_type": "ad_valorem_pct",
+      "duty_components": { "bcd_pct": 9.0, "sws_pct_of_bcd": 10.0, "igst_pct": 5.0 },
+      "notes": "Proposed BCD reduction for other textile T-shirts."
+    },
+    {
+      "hs_code": "6105.10",
+      "origin": "BD",
+      "destination": "IN",
+      "rate": 11.0,
+      "rate_type": "ad_valorem_pct",
+      "duty_components": { "bcd_pct": 11.0, "sws_pct_of_bcd": 10.0, "igst_pct": 5.0 },
+      "notes": "Proposed BCD update for men's cotton shirts."
+    },
+    {
+      "hs_code": "9999.99",
+      "origin": "BD",
+      "destination": "IN",
+      "rate": 5.0,
+      "rate_type": "ad_valorem_pct",
+      "duty_components": { "bcd_pct": 5.0, "sws_pct_of_bcd": 10.0, "igst_pct": 5.0 },
+      "notes": "Intentionally invalid HS — must fail validation."
+    },
+    {
+      "hs_code": "6109.10",
+      "origin": "CN",
+      "destination": "IN",
+      "rate": 8.0,
+      "rate_type": "ad_valorem_pct",
+      "duty_components": { "bcd_pct": 8.0, "sws_pct_of_bcd": 10.0, "igst_pct": 5.0 },
+      "notes": "Wrong origin corridor — must fail validation."
+    }
+  ],
+  "chunks": [
+    {
+      "id": "chunk_cbic_2026_q3_6109",
+      "hs_code": "6109.90",
+      "tags": ["notification", "bcd", "chapter61"],
+      "text": "Illustrative notice: with effect from 1 July 2026, BCD on HS 6109.90 (other textile materials) for Bangladesh origin is notified at 9 percent ad valorem, subject to applicable SWS and IGST."
+    }
+  ]
+}

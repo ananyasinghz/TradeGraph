@@ -1,0 +1,54 @@
+{
+  "source_key": "bd_customs_ch61_operative_v1",
+  "title": "Bangladesh Customs operative tariff excerpt ch.61 (IF-8)",
+  "publisher": "Bangladesh Customs / NBR (illustrative curated archive)",
+  "url": "https://example.invalid/tradegraph/archives/bd-customs-ch61",
+  "notice_id": "TG-BD-61-001",
+  "effective_from": "2026-01-01",
+  "disclaimer": "Prototype BD export-side tariff excerpt \u2014 Level 1/2 document ingest.",
+  "corridor": {
+    "origin": "BD",
+    "destination": "IN"
+  },
+  "rates": [
+    {
+      "hs_code": "6109.10",
+      "origin": "BD",
+      "destination": "IN",
+      "rate": 0.0,
+      "rate_type": "ad_valorem_pct",
+      "duty_components": {
+        "cd_pct": 0.0,
+        "rd_pct": 0.0,
+        "vat_pct": 0.0
+      },
+      "regime": "EXPORT_REF",
+      "effective_from": "2026-01-01",
+      "notes": "Export reference row (illustrative)"
+    },
+    {
+      "hs_code": "6105.10",
+      "origin": "BD",
+      "destination": "IN",
+      "rate": 0.0,
+      "rate_type": "ad_valorem_pct",
+      "duty_components": {
+        "cd_pct": 0.0
+      },
+      "regime": "EXPORT_REF",
+      "effective_from": "2026-01-01",
+      "notes": "Export reference"
+    }
+  ],
+  "chunks": [
+    {
+      "id": "chunk_bd_sro",
+      "hs_code": "6109.10",
+      "tags": [
+        "sro",
+        "bd"
+      ],
+      "text": "Illustrative Bangladesh SRO reference for knit apparel chapter 61 used in TradeGraph Level-1 document ingest demos."
+    }
+  ]
+}

@@ -1,0 +1,308 @@
+# Illustrative BD→IN chapter 61 seed for TradeGraph (Phase 1+2).
+# NOT official legal rates — UI must show data_quality badges.
+
+fingerprint: trade_seed.bd_in_61.v2
+
+sources:
+  - id: src_in_cbic_illustrative_2025
+    title: "Illustrative India customs schedule excerpt (prototype)"
+    publisher: "TradeGraph prototype corpus"
+    url: "https://example.invalid/tradegraph/illustrative-cbic-2025"
+    effective_from: "2025-01-01"
+    status: published
+    source_kind: curated_dataset
+    notes: "Synthetic excerpt for student prototype only. Not a live government feed."
+  - id: src_in_cbic_illustrative_2026
+    title: "Illustrative India customs schedule update (prototype)"
+    publisher: "TradeGraph prototype corpus"
+    url: "https://example.invalid/tradegraph/illustrative-cbic-2026"
+    effective_from: "2026-01-01"
+    status: published
+    source_kind: curated_dataset
+    notes: "Synthetic update used to demo as-of / supersession."
+  - id: src_safta_roo_illustrative
+    title: "Illustrative SAFTA-style rules of origin excerpt (prototype)"
+    publisher: "TradeGraph prototype corpus"
+    url: "https://example.invalid/tradegraph/illustrative-safta-roo"
+    effective_from: "2024-01-01"
+    status: published
+    source_kind: curated_dataset
+    notes: "Synthetic RoO text for FTA / retrieval demos only."
+
+parties:
+  - id: party_bd_exporter_demo
+    name: "Demo Knit Exporters Ltd"
+    role: exporter
+    country: BD
+    address_text: "Dhaka EPZ (illustrative)"
+  - id: party_in_importer_demo
+    name: "Demo Apparel Importers Pvt Ltd"
+    role: importer
+    country: IN
+    address_text: "Mumbai (illustrative)"
+
+hs_codes:
+  - code: "6109.10"
+    description: "T-shirts, singlets and other vests, knitted or crocheted, of cotton"
+    chapter: "61"
+    parent_code: "6109"
+  - code: "6109.90"
+    description: "T-shirts, singlets and other vests, knitted or crocheted, of other textile materials"
+    chapter: "61"
+    parent_code: "6109"
+  - code: "6105.10"
+    description: "Men's or boys' shirts, knitted or crocheted, of cotton"
+    chapter: "61"
+    parent_code: "6105"
+  - code: "6106.10"
+    description: "Women's or girls' blouses, shirts and shirt-blouses, knitted or crocheted, of cotton"
+    chapter: "61"
+    parent_code: "6106"
+  - code: "6110.20"
+    description: "Jerseys, pullovers, cardigans, waistcoats and similar articles, knitted or crocheted, of cotton"
+    chapter: "61"
+    parent_code: "6110"
+  - code: "6104.42"
+    description: "Women's or girls' dresses, of cotton, knitted or crocheted"
+    chapter: "61"
+    parent_code: "6104"
+  - code: "6111.20"
+    description: "Babies' garments and clothing accessories, of cotton, knitted or crocheted"
+    chapter: "61"
+    parent_code: "6111"
+  - code: "6108.21"
+    description: "Women's or girls' briefs and panties, of cotton, knitted or crocheted"
+    chapter: "61"
+    parent_code: "6108"
+
+# Rates are ILLUSTRATIVE. version 1 superseded by version 2 for selected HS.
+tariff_rates:
+  - hs_code: "6109.10"
+    origin: BD
+    destination: IN
+    rate: 12.0
+    rate_type: ad_valorem_pct
+    duty_components: { bcd_pct: 12.0, sws_pct_of_bcd: 10.0, igst_pct: 5.0 }
+    effective_from: "2025-01-01"
+    effective_to: "2025-12-31"
+    source_document_id: src_in_cbic_illustrative_2025
+    version: 1
+    status: superseded
+    data_quality: illustrative
+  - hs_code: "6109.10"
+    origin: BD
+    destination: IN
+    rate: 10.0
+    rate_type: ad_valorem_pct
+    duty_components: { bcd_pct: 10.0, sws_pct_of_bcd: 10.0, igst_pct: 5.0 }
+    effective_from: "2026-01-01"
+    effective_to: null
+    source_document_id: src_in_cbic_illustrative_2026
+    version: 2
+    status: active
+    data_quality: illustrative
+  - hs_code: "6109.90"
+    origin: BD
+    destination: IN
+    rate: 10.0
+    rate_type: ad_valorem_pct
+    duty_components: { bcd_pct: 10.0, sws_pct_of_bcd: 10.0, igst_pct: 5.0 }
+    effective_from: "2026-01-01"
+    effective_to: null
+    source_document_id: src_in_cbic_illustrative_2026
+    version: 1
+    status: active
+    data_quality: illustrative
+  - hs_code: "6105.10"
+    origin: BD
+    destination: IN
+    rate: 10.0
+    rate_type: ad_valorem_pct
+    duty_components: { bcd_pct: 10.0, sws_pct_of_bcd: 10.0, igst_pct: 5.0 }
+    effective_from: "2026-01-01"
+    effective_to: null
+    source_document_id: src_in_cbic_illustrative_2026
+    version: 1
+    status: active
+    data_quality: illustrative
+  - hs_code: "6106.10"
+    origin: BD
+    destination: IN
+    rate: 10.0
+    rate_type: ad_valorem_pct
+    duty_components: { bcd_pct: 10.0, sws_pct_of_bcd: 10.0, igst_pct: 5.0 }
+    effective_from: "2026-01-01"
+    effective_to: null
+    source_document_id: src_in_cbic_illustrative_2026
+    version: 1
+    status: active
+    data_quality: illustrative
+  - hs_code: "6110.20"
+    origin: BD
+    destination: IN
+    rate: 10.0
+    rate_type: ad_valorem_pct
+    duty_components: { bcd_pct: 10.0, sws_pct_of_bcd: 10.0, igst_pct: 12.0 }
+    effective_from: "2026-01-01"
+    effective_to: null
+    source_document_id: src_in_cbic_illustrative_2026
+    version: 1
+    status: active
+    data_quality: illustrative
+  - hs_code: "6104.42"
+    origin: BD
+    destination: IN
+    rate: 10.0
+    rate_type: ad_valorem_pct
+    duty_components: { bcd_pct: 10.0, sws_pct_of_bcd: 10.0, igst_pct: 5.0 }
+    effective_from: "2026-01-01"
+    effective_to: null
+    source_document_id: src_in_cbic_illustrative_2026
+    version: 1
+    status: active
+    data_quality: illustrative
+  - hs_code: "6111.20"
+    origin: BD
+    destination: IN
+    rate: 10.0
+    rate_type: ad_valorem_pct
+    duty_components: { bcd_pct: 10.0, sws_pct_of_bcd: 10.0, igst_pct: 5.0 }
+    effective_from: "2026-01-01"
+    effective_to: null
+    source_document_id: src_in_cbic_illustrative_2026
+    version: 1
+    status: active
+    data_quality: illustrative
+  - hs_code: "6108.21"
+    origin: BD
+    destination: IN
+    rate: 10.0
+    rate_type: ad_valorem_pct
+    duty_components: { bcd_pct: 10.0, sws_pct_of_bcd: 10.0, igst_pct: 5.0 }
+    effective_from: "2026-01-01"
+    effective_to: null
+    source_document_id: src_in_cbic_illustrative_2026
+    version: 1
+    status: active
+    data_quality: illustrative
+
+document_requirements:
+  - origin: BD
+    destination: IN
+    hs_code: null
+    doc_code: commercial_invoice
+    doc_label: Commercial invoice
+    required: true
+    notes: "Must state product description, quantity, and value."
+  - origin: BD
+    destination: IN
+    hs_code: null
+    doc_code: packing_list
+    doc_label: Packing list
+    required: true
+    notes: null
+  - origin: BD
+    destination: IN
+    hs_code: null
+    doc_code: bill_of_lading
+    doc_label: Bill of lading / airway bill
+    required: true
+    notes: null
+  - origin: BD
+    destination: IN
+    hs_code: null
+    doc_code: certificate_of_origin
+    doc_label: Certificate of origin
+    required: true
+    notes: "Required when claiming preferential treatment (Phase 2 FTA)."
+  - origin: BD
+    destination: IN
+    hs_code: "6109.10"
+    doc_code: fibre_composition
+    doc_label: Fibre composition declaration
+    required: true
+    notes: "Useful for cotton classification support."
+
+trade_agreements:
+  - id: agr_safta_illustrative
+    name: "Illustrative SAFTA-style preferential corridor (BD→IN)"
+    status: illustrative
+    effective_from: "2024-01-01"
+    notes: "Prototype agreement for research demos — not a legal instrument."
+
+agreement_eligibility:
+  - agreement_id: agr_safta_illustrative
+    hs_code: "6109.10"
+    origin: BD
+    destination: IN
+    preferential_rate_pct: 5.0
+    status: conditional
+    certificate_doc_code: certificate_of_origin
+    roo_summary: "Illustrative: wholly obtained or CTSH with regional value content threshold."
+    source_document_id: src_safta_roo_illustrative
+    data_quality: illustrative
+    conditions:
+      - id: certificate_of_origin
+        type: certificate
+        doc_code: certificate_of_origin
+        label: Certificate of origin on file
+      - id: origin_criteria
+        type: boolean_claim
+        field: origin_criteria_met
+        label: Wholly obtained or CTSH claim asserted
+      - id: min_rvc
+        type: min_rvc_pct
+        threshold: 40
+        label: Regional value content meets threshold
+  - agreement_id: agr_safta_illustrative
+    hs_code: "6105.10"
+    origin: BD
+    destination: IN
+    preferential_rate_pct: 5.0
+    status: conditional
+    certificate_doc_code: certificate_of_origin
+    roo_summary: "Illustrative: cotton shirts may claim preference with valid proof of origin."
+    source_document_id: src_safta_roo_illustrative
+    data_quality: illustrative
+    conditions:
+      - id: certificate_of_origin
+        type: certificate
+        doc_code: certificate_of_origin
+        label: Certificate of origin on file
+      - id: origin_criteria
+        type: boolean_claim
+        field: origin_criteria_met
+        label: Wholly obtained or CTSH claim asserted
+      - id: min_rvc
+        type: min_rvc_pct
+        threshold: 40
+        label: Regional value content meets threshold
+
+regulatory_chunks:
+  - id: chunk_roo_6109
+    source_document_id: src_safta_roo_illustrative
+    hs_code: "6109.10"
+    tags: [rules_of_origin, fta, certificate]
+    text: >
+      Illustrative rules of origin for knitted cotton T-shirts (HS 6109.10):
+      preferential duty may be claimed where the good is wholly obtained in a
+      beneficiary country or undergoes a change in tariff classification with
+      qualifying regional value content. A valid certificate of origin must
+      accompany the claim. This text is prototype-only and not legal advice.
+  - id: chunk_roo_general
+    source_document_id: src_safta_roo_illustrative
+    hs_code: null
+    tags: [rules_of_origin, proof_of_origin]
+    text: >
+      Illustrative proof of origin guidance: importers should retain the
+      commercial invoice, packing list, and certificate of origin matching the
+      preferential claim. Preferential rates do not apply if origin requirements
+      fail verification. Prototype excerpt only.
+  - id: chunk_rate_change_note
+    source_document_id: src_in_cbic_illustrative_2026
+    hs_code: "6109.10"
+    tags: [tariff_update, notification]
+    text: >
+      Illustrative notification: basic customs duty for HS 6109.10 on the
+      BD→IN corridor is shown as 10% effective 2026-01-01, superseding the
+      prior illustrative 12% schedule. Not an official gazette extract.

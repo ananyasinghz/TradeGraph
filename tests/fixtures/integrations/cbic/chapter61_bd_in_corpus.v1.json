@@ -1,0 +1,657 @@
+{
+  "source_key": "in_cbic_ch61_corpus_v1",
+  "title": "CBIC-style BD to IN chapter 61 curated corpus (IF-6)",
+  "publisher": "CBIC (illustrative curated archive for TradeGraph)",
+  "url": "https://example.invalid/tradegraph/archives/cbic-ch61-corpus-v1",
+  "notice_id": "TG-CBIC-61-CORPUS-001",
+  "effective_from": "2026-07-01",
+  "retrieved_at": "2026-09-14T10:00:00+00:00",
+  "disclaimer": "Prototype corpus \u2014 not an official CBIC publication. 30+ HS rows for BD to IN ch.61.",
+  "corridor": {
+    "origin": "BD",
+    "destination": "IN"
+  },
+  "rates": [
+    {
+      "hs_code": "6101.20",
+      "description": "Mens overcoats of cotton",
+      "origin": "BD",
+      "destination": "IN",
+      "regime": "MFN",
+      "rate": 8.0,
+      "rate_type": "ad_valorem_pct",
+      "duty_components": {
+        "bcd_pct": 8.0,
+        "sws_pct_of_bcd": 10.0,
+        "igst_pct": 5.0
+      },
+      "effective_from": "2026-07-01",
+      "source_page": 1,
+      "notes": "IF-6 curated CBIC-style corpus row for 6101.20"
+    },
+    {
+      "hs_code": "6102.20",
+      "description": "Womens overcoats of cotton",
+      "origin": "BD",
+      "destination": "IN",
+      "regime": "MFN",
+      "rate": 9.0,
+      "rate_type": "ad_valorem_pct",
+      "duty_components": {
+        "bcd_pct": 9.0,
+        "sws_pct_of_bcd": 10.0,
+        "igst_pct": 5.0
+      },
+      "effective_from": "2026-07-01",
+      "source_page": 1,
+      "notes": "IF-6 curated CBIC-style corpus row for 6102.20"
+    },
+    {
+      "hs_code": "6103.42",
+      "description": "Mens trousers of cotton",
+      "origin": "BD",
+      "destination": "IN",
+      "regime": "MFN",
+      "rate": 10.0,
+      "rate_type": "ad_valorem_pct",
+      "duty_components": {
+        "bcd_pct": 10.0,
+        "sws_pct_of_bcd": 10.0,
+        "igst_pct": 5.0
+      },
+      "effective_from": "2026-07-01",
+      "source_page": 1,
+      "notes": "IF-6 curated CBIC-style corpus row for 6103.42"
+    },
+    {
+      "hs_code": "6104.42",
+      "description": "Womens dresses of cotton",
+      "origin": "BD",
+      "destination": "IN",
+      "regime": "MFN",
+      "rate": 11.0,
+      "rate_type": "ad_valorem_pct",
+      "duty_components": {
+        "bcd_pct": 11.0,
+        "sws_pct_of_bcd": 10.0,
+        "igst_pct": 5.0
+      },
+      "effective_from": "2026-07-01",
+      "source_page": 1,
+      "notes": "IF-6 curated CBIC-style corpus row for 6104.42"
+    },
+    {
+      "hs_code": "6104.62",
+      "description": "Womens trousers of cotton",
+      "origin": "BD",
+      "destination": "IN",
+      "regime": "MFN",
+      "rate": 12.0,
+      "rate_type": "ad_valorem_pct",
+      "duty_components": {
+        "bcd_pct": 12.0,
+        "sws_pct_of_bcd": 10.0,
+        "igst_pct": 5.0
+      },
+      "effective_from": "2026-07-01",
+      "source_page": 1,
+      "notes": "IF-6 curated CBIC-style corpus row for 6104.62"
+    },
+    {
+      "hs_code": "6105.10",
+      "description": "Mens shirts of cotton",
+      "origin": "BD",
+      "destination": "IN",
+      "regime": "MFN",
+      "rate": 13.0,
+      "rate_type": "ad_valorem_pct",
+      "duty_components": {
+        "bcd_pct": 13.0,
+        "sws_pct_of_bcd": 10.0,
+        "igst_pct": 5.0
+      },
+      "effective_from": "2026-07-01",
+      "source_page": 1,
+      "notes": "IF-6 curated CBIC-style corpus row for 6105.10"
+    },
+    {
+      "hs_code": "6105.20",
+      "description": "Mens shirts of man-made fibres",
+      "origin": "BD",
+      "destination": "IN",
+      "regime": "MFN",
+      "rate": 14.0,
+      "rate_type": "ad_valorem_pct",
+      "duty_components": {
+        "bcd_pct": 14.0,
+        "sws_pct_of_bcd": 10.0,
+        "igst_pct": 5.0
+      },
+      "effective_from": "2026-07-01",
+      "source_page": 1,
+      "notes": "IF-6 curated CBIC-style corpus row for 6105.20"
+    },
+    {
+      "hs_code": "6106.10",
+      "description": "Womens blouses of cotton",
+      "origin": "BD",
+      "destination": "IN",
+      "regime": "MFN",
+      "rate": 8.0,
+      "rate_type": "ad_valorem_pct",
+      "duty_components": {
+        "bcd_pct": 8.0,
+        "sws_pct_of_bcd": 10.0,
+        "igst_pct": 5.0
+      },
+      "effective_from": "2026-07-01",
+      "source_page": 1,
+      "notes": "IF-6 curated CBIC-style corpus row for 6106.10"
+    },
+    {
+      "hs_code": "6106.20",
+      "description": "Womens blouses of man-made fibres",
+      "origin": "BD",
+      "destination": "IN",
+      "regime": "MFN",
+      "rate": 9.0,
+      "rate_type": "ad_valorem_pct",
+      "duty_components": {
+        "bcd_pct": 9.0,
+        "sws_pct_of_bcd": 10.0,
+        "igst_pct": 5.0
+      },
+      "effective_from": "2026-07-01",
+      "source_page": 1,
+      "notes": "IF-6 curated CBIC-style corpus row for 6106.20"
+    },
+    {
+      "hs_code": "6107.11",
+      "description": "Mens underpants of cotton",
+      "origin": "BD",
+      "destination": "IN",
+      "regime": "MFN",
+      "rate": 10.0,
+      "rate_type": "ad_valorem_pct",
+      "duty_components": {
+        "bcd_pct": 10.0,
+        "sws_pct_of_bcd": 10.0,
+        "igst_pct": 5.0
+      },
+      "effective_from": "2026-07-01",
+      "source_page": 1,
+      "notes": "IF-6 curated CBIC-style corpus row for 6107.11"
+    },
+    {
+      "hs_code": "6108.21",
+      "description": "Womens briefs of cotton",
+      "origin": "BD",
+      "destination": "IN",
+      "regime": "MFN",
+      "rate": 11.0,
+      "rate_type": "ad_valorem_pct",
+      "duty_components": {
+        "bcd_pct": 11.0,
+        "sws_pct_of_bcd": 10.0,
+        "igst_pct": 5.0
+      },
+      "effective_from": "2026-07-01",
+      "source_page": 2,
+      "notes": "IF-6 curated CBIC-style corpus row for 6108.21"
+    },
+    {
+      "hs_code": "6108.31",
+      "description": "Womens nightdresses of cotton",
+      "origin": "BD",
+      "destination": "IN",
+      "regime": "MFN",
+      "rate": 12.0,
+      "rate_type": "ad_valorem_pct",
+      "duty_components": {
+        "bcd_pct": 12.0,
+        "sws_pct_of_bcd": 10.0,
+        "igst_pct": 5.0
+      },
+      "effective_from": "2026-07-01",
+      "source_page": 2,
+      "notes": "IF-6 curated CBIC-style corpus row for 6108.31"
+    },
+    {
+      "hs_code": "6109.10",
+      "description": "T-shirts of cotton",
+      "origin": "BD",
+      "destination": "IN",
+      "regime": "MFN",
+      "rate": 13.0,
+      "rate_type": "ad_valorem_pct",
+      "duty_components": {
+        "bcd_pct": 13.0,
+        "sws_pct_of_bcd": 10.0,
+        "igst_pct": 5.0
+      },
+      "effective_from": "2026-07-01",
+      "source_page": 2,
+      "notes": "IF-6 curated CBIC-style corpus row for 6109.10"
+    },
+    {
+      "hs_code": "6109.90",
+      "description": "T-shirts of other textiles",
+      "origin": "BD",
+      "destination": "IN",
+      "regime": "MFN",
+      "rate": 14.0,
+      "rate_type": "ad_valorem_pct",
+      "duty_components": {
+        "bcd_pct": 14.0,
+        "sws_pct_of_bcd": 10.0,
+        "igst_pct": 5.0
+      },
+      "effective_from": "2026-07-01",
+      "source_page": 2,
+      "notes": "IF-6 curated CBIC-style corpus row for 6109.90"
+    },
+    {
+      "hs_code": "6110.20",
+      "description": "Jerseys of cotton",
+      "origin": "BD",
+      "destination": "IN",
+      "regime": "MFN",
+      "rate": 8.0,
+      "rate_type": "ad_valorem_pct",
+      "duty_components": {
+        "bcd_pct": 8.0,
+        "sws_pct_of_bcd": 10.0,
+        "igst_pct": 5.0
+      },
+      "effective_from": "2026-07-01",
+      "source_page": 2,
+      "notes": "IF-6 curated CBIC-style corpus row for 6110.20"
+    },
+    {
+      "hs_code": "6110.30",
+      "description": "Jerseys of man-made fibres",
+      "origin": "BD",
+      "destination": "IN",
+      "regime": "MFN",
+      "rate": 9.0,
+      "rate_type": "ad_valorem_pct",
+      "duty_components": {
+        "bcd_pct": 9.0,
+        "sws_pct_of_bcd": 10.0,
+        "igst_pct": 5.0
+      },
+      "effective_from": "2026-07-01",
+      "source_page": 2,
+      "notes": "IF-6 curated CBIC-style corpus row for 6110.30"
+    },
+    {
+      "hs_code": "6111.20",
+      "description": "Babies garments of cotton",
+      "origin": "BD",
+      "destination": "IN",
+      "regime": "MFN",
+      "rate": 10.0,
+      "rate_type": "ad_valorem_pct",
+      "duty_components": {
+        "bcd_pct": 10.0,
+        "sws_pct_of_bcd": 10.0,
+        "igst_pct": 5.0
+      },
+      "effective_from": "2026-07-01",
+      "source_page": 2,
+      "notes": "IF-6 curated CBIC-style corpus row for 6111.20"
+    },
+    {
+      "hs_code": "6112.11",
+      "description": "Track suits of cotton",
+      "origin": "BD",
+      "destination": "IN",
+      "regime": "MFN",
+      "rate": 11.0,
+      "rate_type": "ad_valorem_pct",
+      "duty_components": {
+        "bcd_pct": 11.0,
+        "sws_pct_of_bcd": 10.0,
+        "igst_pct": 5.0
+      },
+      "effective_from": "2026-07-01",
+      "source_page": 2,
+      "notes": "IF-6 curated CBIC-style corpus row for 6112.11"
+    },
+    {
+      "hs_code": "6114.20",
+      "description": "Other garments of cotton",
+      "origin": "BD",
+      "destination": "IN",
+      "regime": "MFN",
+      "rate": 12.0,
+      "rate_type": "ad_valorem_pct",
+      "duty_components": {
+        "bcd_pct": 12.0,
+        "sws_pct_of_bcd": 10.0,
+        "igst_pct": 5.0
+      },
+      "effective_from": "2026-07-01",
+      "source_page": 2,
+      "notes": "IF-6 curated CBIC-style corpus row for 6114.20"
+    },
+    {
+      "hs_code": "6115.95",
+      "description": "Stockings of cotton",
+      "origin": "BD",
+      "destination": "IN",
+      "regime": "MFN",
+      "rate": 13.0,
+      "rate_type": "ad_valorem_pct",
+      "duty_components": {
+        "bcd_pct": 13.0,
+        "sws_pct_of_bcd": 10.0,
+        "igst_pct": 5.0
+      },
+      "effective_from": "2026-07-01",
+      "source_page": 2,
+      "notes": "IF-6 curated CBIC-style corpus row for 6115.95"
+    },
+    {
+      "hs_code": "6116.10",
+      "description": "Gloves impregnated",
+      "origin": "BD",
+      "destination": "IN",
+      "regime": "MFN",
+      "rate": 14.0,
+      "rate_type": "ad_valorem_pct",
+      "duty_components": {
+        "bcd_pct": 14.0,
+        "sws_pct_of_bcd": 10.0,
+        "igst_pct": 5.0
+      },
+      "effective_from": "2026-07-01",
+      "source_page": 3,
+      "notes": "IF-6 curated CBIC-style corpus row for 6116.10"
+    },
+    {
+      "hs_code": "6117.10",
+      "description": "Shawls and scarves",
+      "origin": "BD",
+      "destination": "IN",
+      "regime": "MFN",
+      "rate": 8.0,
+      "rate_type": "ad_valorem_pct",
+      "duty_components": {
+        "bcd_pct": 8.0,
+        "sws_pct_of_bcd": 10.0,
+        "igst_pct": 5.0
+      },
+      "effective_from": "2026-07-01",
+      "source_page": 3,
+      "notes": "IF-6 curated CBIC-style corpus row for 6117.10"
+    },
+    {
+      "hs_code": "6103.32",
+      "description": "Mens jackets of cotton",
+      "origin": "BD",
+      "destination": "IN",
+      "regime": "MFN",
+      "rate": 9.0,
+      "rate_type": "ad_valorem_pct",
+      "duty_components": {
+        "bcd_pct": 9.0,
+        "sws_pct_of_bcd": 10.0,
+        "igst_pct": 5.0
+      },
+      "effective_from": "2026-07-01",
+      "source_page": 3,
+      "notes": "IF-6 curated CBIC-style corpus row for 6103.32"
+    },
+    {
+      "hs_code": "6103.33",
+      "description": "Mens jackets of synthetic",
+      "origin": "BD",
+      "destination": "IN",
+      "regime": "MFN",
+      "rate": 10.0,
+      "rate_type": "ad_valorem_pct",
+      "duty_components": {
+        "bcd_pct": 10.0,
+        "sws_pct_of_bcd": 10.0,
+        "igst_pct": 5.0
+      },
+      "effective_from": "2026-07-01",
+      "source_page": 3,
+      "notes": "IF-6 curated CBIC-style corpus row for 6103.33"
+    },
+    {
+      "hs_code": "6104.32",
+      "description": "Womens jackets of cotton",
+      "origin": "BD",
+      "destination": "IN",
+      "regime": "MFN",
+      "rate": 11.0,
+      "rate_type": "ad_valorem_pct",
+      "duty_components": {
+        "bcd_pct": 11.0,
+        "sws_pct_of_bcd": 10.0,
+        "igst_pct": 5.0
+      },
+      "effective_from": "2026-07-01",
+      "source_page": 3,
+      "notes": "IF-6 curated CBIC-style corpus row for 6104.32"
+    },
+    {
+      "hs_code": "6107.21",
+      "description": "Mens nightshirts of cotton",
+      "origin": "BD",
+      "destination": "IN",
+      "regime": "MFN",
+      "rate": 12.0,
+      "rate_type": "ad_valorem_pct",
+      "duty_components": {
+        "bcd_pct": 12.0,
+        "sws_pct_of_bcd": 10.0,
+        "igst_pct": 5.0
+      },
+      "effective_from": "2026-07-01",
+      "source_page": 3,
+      "notes": "IF-6 curated CBIC-style corpus row for 6107.21"
+    },
+    {
+      "hs_code": "6108.11",
+      "description": "Womens slips of man-made fibres",
+      "origin": "BD",
+      "destination": "IN",
+      "regime": "MFN",
+      "rate": 13.0,
+      "rate_type": "ad_valorem_pct",
+      "duty_components": {
+        "bcd_pct": 13.0,
+        "sws_pct_of_bcd": 10.0,
+        "igst_pct": 5.0
+      },
+      "effective_from": "2026-07-01",
+      "source_page": 3,
+      "notes": "IF-6 curated CBIC-style corpus row for 6108.11"
+    },
+    {
+      "hs_code": "6110.11",
+      "description": "Jerseys of wool",
+      "origin": "BD",
+      "destination": "IN",
+      "regime": "MFN",
+      "rate": 14.0,
+      "rate_type": "ad_valorem_pct",
+      "duty_components": {
+        "bcd_pct": 14.0,
+        "sws_pct_of_bcd": 10.0,
+        "igst_pct": 5.0
+      },
+      "effective_from": "2026-07-01",
+      "source_page": 3,
+      "notes": "IF-6 curated CBIC-style corpus row for 6110.11"
+    },
+    {
+      "hs_code": "6110.12",
+      "description": "Jerseys of Kashmir goats",
+      "origin": "BD",
+      "destination": "IN",
+      "regime": "MFN",
+      "rate": 8.0,
+      "rate_type": "ad_valorem_pct",
+      "duty_components": {
+        "bcd_pct": 8.0,
+        "sws_pct_of_bcd": 10.0,
+        "igst_pct": 5.0
+      },
+      "effective_from": "2026-07-01",
+      "source_page": 3,
+      "notes": "IF-6 curated CBIC-style corpus row for 6110.12"
+    },
+    {
+      "hs_code": "6112.12",
+      "description": "Track suits of synthetic",
+      "origin": "BD",
+      "destination": "IN",
+      "regime": "MFN",
+      "rate": 9.0,
+      "rate_type": "ad_valorem_pct",
+      "duty_components": {
+        "bcd_pct": 9.0,
+        "sws_pct_of_bcd": 10.0,
+        "igst_pct": 5.0
+      },
+      "effective_from": "2026-07-01",
+      "source_page": 3,
+      "notes": "IF-6 curated CBIC-style corpus row for 6112.12"
+    },
+    {
+      "hs_code": "6115.21",
+      "description": "Pantyhose of synthetic",
+      "origin": "BD",
+      "destination": "IN",
+      "regime": "MFN",
+      "rate": 10.0,
+      "rate_type": "ad_valorem_pct",
+      "duty_components": {
+        "bcd_pct": 10.0,
+        "sws_pct_of_bcd": 10.0,
+        "igst_pct": 5.0
+      },
+      "effective_from": "2026-07-01",
+      "source_page": 4,
+      "notes": "IF-6 curated CBIC-style corpus row for 6115.21"
+    },
+    {
+      "hs_code": "6115.96",
+      "description": "Stockings of synthetic",
+      "origin": "BD",
+      "destination": "IN",
+      "regime": "MFN",
+      "rate": 11.0,
+      "rate_type": "ad_valorem_pct",
+      "duty_components": {
+        "bcd_pct": 11.0,
+        "sws_pct_of_bcd": 10.0,
+        "igst_pct": 5.0
+      },
+      "effective_from": "2026-07-01",
+      "source_page": 4,
+      "notes": "IF-6 curated CBIC-style corpus row for 6115.96"
+    },
+    {
+      "hs_code": "6101.30",
+      "description": "Mens overcoats of man-made fibres",
+      "origin": "BD",
+      "destination": "IN",
+      "regime": "MFN",
+      "rate": 12.0,
+      "rate_type": "ad_valorem_pct",
+      "duty_components": {
+        "bcd_pct": 12.0,
+        "sws_pct_of_bcd": 10.0,
+        "igst_pct": 5.0
+      },
+      "effective_from": "2026-07-01",
+      "source_page": 4,
+      "notes": "IF-6 curated CBIC-style corpus row for 6101.30"
+    },
+    {
+      "hs_code": "6102.30",
+      "description": "Womens overcoats of man-made fibres",
+      "origin": "BD",
+      "destination": "IN",
+      "regime": "MFN",
+      "rate": 13.0,
+      "rate_type": "ad_valorem_pct",
+      "duty_components": {
+        "bcd_pct": 13.0,
+        "sws_pct_of_bcd": 10.0,
+        "igst_pct": 5.0
+      },
+      "effective_from": "2026-07-01",
+      "source_page": 4,
+      "notes": "IF-6 curated CBIC-style corpus row for 6102.30"
+    },
+    {
+      "hs_code": "6109.10",
+      "description": "SAFTA preferential",
+      "origin": "BD",
+      "destination": "IN",
+      "regime": "SAFTA",
+      "rate": 5.0,
+      "rate_type": "ad_valorem_pct",
+      "duty_components": {
+        "bcd_pct": 5.0,
+        "sws_pct_of_bcd": 10.0,
+        "igst_pct": 5.0
+      },
+      "effective_from": "2026-07-01",
+      "source_page": 2,
+      "notes": "Preferential SAFTA illustrative row"
+    },
+    {
+      "hs_code": "6105.10",
+      "description": "SAFTA preferential",
+      "origin": "BD",
+      "destination": "IN",
+      "regime": "SAFTA",
+      "rate": 6.0,
+      "rate_type": "ad_valorem_pct",
+      "duty_components": {
+        "bcd_pct": 6.0,
+        "sws_pct_of_bcd": 10.0,
+        "igst_pct": 5.0
+      },
+      "effective_from": "2026-07-01",
+      "source_page": 2,
+      "notes": "Preferential SAFTA illustrative row"
+    },
+    {
+      "hs_code": "6110.20",
+      "description": "SAFTA preferential",
+      "origin": "BD",
+      "destination": "IN",
+      "regime": "SAFTA",
+      "rate": 5.5,
+      "rate_type": "ad_valorem_pct",
+      "duty_components": {
+        "bcd_pct": 5.5,
+        "sws_pct_of_bcd": 10.0,
+        "igst_pct": 5.0
+      },
+      "effective_from": "2026-07-01",
+      "source_page": 2,
+      "notes": "Preferential SAFTA illustrative row"
+    }
+  ],
+  "chunks": [
+    {
+      "id": "chunk_corpus_safta",
+      "hs_code": "6109.10",
+      "tags": [
+        "safta",
+        "bcd",
+        "chapter61"
+      ],
+      "text": "Illustrative corpus note: preferential SAFTA rates apply only when certificate of origin and RoO conditions are satisfied for Bangladesh-origin knit apparel under chapter 61."
+    }
+  ]
+}

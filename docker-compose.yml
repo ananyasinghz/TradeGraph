@@ -1,0 +1,43 @@
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: trade
+      POSTGRES_PASSWORD: trade
+      POSTGRES_DB: tradegraph
+    ports:
+      - "5432:5432"
+    volumes:
+      - trade_pg:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U trade -d tradegraph"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  api:
+    build: .
+    ports:
+      - "8000:8000"
+    environment:
+      TRADE_DATABASE_URL: postgresql+psycopg://trade:trade@db:5432/tradegraph
+      TRADE_AUTH_ENABLED: "false"
+      TRADE_PRODUCT_MODE: demonstration
+      TRADE_DEFAULT_ORGANIZATION_ID: org_demo
+      # Optional OIDC (leave empty for demo mode)
+      TRADE_IDP_ISSUER: ""
+      TRADE_IDP_AUDIENCE: ""
+      TRADE_IDP_JWKS_URL: ""
+    depends_on:
+      db:
+        condition: service_healthy
+    volumes:
+      - trade_data:/app/data
+    command: >
+      sh -c "alembic upgrade head &&
+             python scripts/seed_trade_data.py --force &&
+             uvicorn backend.app.main:app --host 0.0.0.0 --port 8000"
+
+volumes:
+  trade_pg:
+  trade_data:

@@ -1,0 +1,60 @@
+{
+  "version": "benchmark.v1",
+  "corridor": "BD->IN",
+  "cases": [
+    {
+      "id": "tariff_6109_2026",
+      "query": "What is the import duty for HS 6109.10 from Bangladesh to India?",
+      "as_of": "2026-06-01",
+      "expected_primary_intent": "tariff_lookup",
+      "expected_rate": 10.0,
+      "expected_min_evidence_score": 0.4,
+      "expected_tools_contains": ["tariff_lookup"]
+    },
+    {
+      "id": "tariff_6109_2025",
+      "query": "What is the import duty for HS 6109.10 from Bangladesh to India?",
+      "as_of": "2025-06-01",
+      "expected_primary_intent": "tariff_lookup",
+      "expected_rate": 12.0,
+      "expected_min_evidence_score": 0.4,
+      "expected_tools_contains": ["tariff_lookup"]
+    },
+    {
+      "id": "landed_cost_6109",
+      "query": "Calculate landed cost for HS 6109.10 BD to IN",
+      "as_of": "2026-06-01",
+      "expected_primary_intent": "landed_cost",
+      "expected_rate": 10.0,
+      "expected_min_evidence_score": 0.4,
+      "expected_tools_contains": ["landed_cost"]
+    },
+    {
+      "id": "fta_6109",
+      "query": "Can I claim preferential FTA duty for HS 6109.10 BD to IN under SAFTA?",
+      "as_of": "2026-06-01",
+      "expected_primary_intent": "fta_check",
+      "expected_rate": 10.0,
+      "expected_min_evidence_score": 0.4,
+      "expected_tools_contains": ["fta_check"]
+    },
+    {
+      "id": "roo_retrieve",
+      "query": "What proof of origin is needed for preferential cotton T-shirt imports HS 6109.10?",
+      "as_of": "2026-06-01",
+      "expected_primary_intent": "regulation_retrieve",
+      "expected_rate": null,
+      "expected_min_evidence_score": 0.4,
+      "expected_tools_contains": ["regulation_retrieve"]
+    },
+    {
+      "id": "multi_fta_docs",
+      "query": "FTA preferential eligibility and document checklist for HS 6109.10 Bangladesh to India",
+      "as_of": "2026-06-01",
+      "expected_primary_intent": "fta_check",
+      "expected_rate": 10.0,
+      "expected_min_evidence_score": 0.4,
+      "expected_tools_contains": ["fta_check"]
+    }
+  ]
+}
