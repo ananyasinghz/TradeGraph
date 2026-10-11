@@ -30,7 +30,7 @@ def test_shipment_workspace_aggregates_tariff_fta_and_risks() -> None:
     body = ws.json()
     assert body["shipment"]["id"] == shipment_id
     assert body["tariff"] is not None
-    assert float(body["tariff"]["rate"]) == 10.0
+    assert float(body["tariff"]["rate"]) == 20.0
     assert body["fta"] is not None
     assert body["fta"]["status"] in {
         "eligible",

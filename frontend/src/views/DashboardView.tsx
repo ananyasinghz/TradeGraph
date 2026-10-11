@@ -4,7 +4,9 @@ import {
   type DashboardAlert,
   type DashboardOut,
   type DashboardShipmentCard,
+  type SnapshotDiff,
 } from '../services/api';
+import { CalcDiffPanel } from '../components/CalcDiffPanel';
 import { InfoTip } from '../components/InfoTip';
 import type { TradeView } from '../components/Sidebar';
 import { OPERATOR } from '../content/operatorCopy';
@@ -15,23 +17,27 @@ interface DashboardViewProps {
   onOpenShipment?: (shipmentId: string) => void;
 }
 
+type QueueFilter = 'all' | 'blocked' | 'alerts';
+
 export function DashboardView({
   onCreateShipment,
-  onNavigate,
   onOpenShipment,
 }: DashboardViewProps) {
   const [data, setData] = useState<DashboardOut | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [calcDiff, setCalcDiff] = useState<SnapshotDiff | null>(null);
+  const [queue, setQueue] = useState<QueueFilter>('all');
 
-  const refresh = () =>
+  const refresh = (q: QueueFilter = queue) =>
     api
-      .getDashboard()
+      .getDashboard({ queue: q })
       .then(setData)
       .catch((err) => setError(err instanceof Error ? err.message : 'Dashboard failed'));
 
   useEffect(() => {
-    void refresh();
-  }, []);
+    void refresh(queue);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [queue]);
 
   const markReviewed = async (impactId: string) => {
     try {
@@ -49,7 +55,7 @@ export function DashboardView({
     }
     try {
       const d = await api.diffCalculations(a.previous_calculation_id, a.new_calculation_id);
-      window.alert(`${d.summary}\n${JSON.stringify(d.fields, null, 2)}`);
+      setCalcDiff(d);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Compare failed');
     }
@@ -58,37 +64,38 @@ export function DashboardView({
   return (
     <section className="panel-view">
       <h2>Home</h2>
-      <p className="hint">
-        {OPERATOR.homeHint} <InfoTip id="shipment_workspace" />
-      </p>
+      <p className="hint">{OPERATOR.homeHint}</p>
       {error && <p className="error-banner">{error}</p>}
 
-      <div className="section-title-row">
-        <h3>Quick actions</h3>
-      </div>
-      <div className="quick-actions">
-        {onCreateShipment && (
+      {onCreateShipment ? (
+        <div className="quick-actions">
           <button type="button" className="primary-cta" onClick={onCreateShipment}>
             {OPERATOR.homeNewCase}
           </button>
-        )}
-        <button type="button" onClick={() => onNavigate?.('tariffs')}>
-          {OPERATOR.homeLookupDuty}
-        </button>
-        <button type="button" onClick={() => onNavigate?.('calculator')}>
-          {OPERATOR.homeLanded}
-        </button>
-        <button type="button" onClick={() => onNavigate?.('ask')}>
-          {OPERATOR.homeAsk}
-        </button>
-        <button type="button" onClick={() => onNavigate?.('documents')}>
-          {OPERATOR.homePapers}
-        </button>
-      </div>
+        </div>
+      ) : null}
 
       <div className="section-title-row">
         <h3>{OPERATOR.homeActiveCases}</h3>
-        <InfoTip id="shipment_workspace" />
+      </div>
+      <div className="chip-row" data-testid="dashboard-queue-filter">
+        {(
+          [
+            ['all', OPERATOR.queueAll],
+            ['blocked', OPERATOR.queueBlocked],
+            ['alerts', OPERATOR.queueAlerts],
+          ] as const
+        ).map(([id, label]) => (
+          <button
+            key={id}
+            type="button"
+            data-testid={`queue-${id}`}
+            className={`chip${queue === id ? ' chip-active' : ''}`}
+            onClick={() => setQueue(id)}
+          >
+            {label}
+          </button>
+        ))}
       </div>
       {!data ? (
         <p className="muted">Loading…</p>
@@ -121,6 +128,13 @@ export function DashboardView({
                   </span>
                 ))}
               </div>
+              {(s.blocked_reasons?.length ?? 0) > 0 ? (
+                <ul className="blocked-reasons" data-testid="blocked-reasons">
+                  {s.blocked_reasons!.slice(0, 3).map((r) => (
+                    <li key={r}>{r}</li>
+                  ))}
+                </ul>
+              ) : null}
             </button>
           ))}
         </div>
@@ -227,42 +241,7 @@ export function DashboardView({
         </ul>
       )}
 
-      <div className="section-title-row">
-        <h3>{OPERATOR.homeDataStatus}</h3>
-        <InfoTip id="corridor_scope" />
-      </div>
-      {data && (
-        <div className="data-status-block" data-testid="home-data-status">
-          <p>
-            <strong>Trade lane:</strong> {data.data_status.corridor}, HS chapter{' '}
-            {data.data_status.hs_chapter}
-          </p>
-          <p>
-            <strong>Rates:</strong> {data.data_status.dataset_type}
-          </p>
-          {data.data_status.active_rules ? (
-            <p>
-              <strong>Active duty rates:</strong>{' '}
-              {data.data_status.active_rules.total} total (
-              {data.data_status.active_rules.approved} checked ·{' '}
-              {data.data_status.active_rules.illustrative} sample)
-            </p>
-          ) : null}
-          <p>
-            <strong>Last checked-rate update:</strong>{' '}
-            {data.data_status.last_approved_at
-              ? `${data.data_status.last_approved_label} · ${data.data_status.last_approved_at}`
-              : 'None yet (sample data only)'}
-          </p>
-          {data.data_status.latest_source_batch?.label ? (
-            <p>
-              <strong>Latest source batch:</strong> {data.data_status.latest_source_batch.label} ·{' '}
-              {data.data_status.latest_source_batch.status || '—'}
-            </p>
-          ) : null}
-          <p className="muted">{data.data_status.trust_notice || data.data_status.note}</p>
-        </div>
-      )}
+      {calcDiff && <CalcDiffPanel diff={calcDiff} onClose={() => setCalcDiff(null)} />}
     </section>
   );
 }

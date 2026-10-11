@@ -16,11 +16,16 @@ def extract_product_attributes(
     product_text: str,
     *,
     settings: Settings | None = None,
+    allow_ollama: bool = False,
 ) -> ProductAttributes:
-    """Rules first; optionally enrich via Ollama when enabled."""
+    """Rules first; optionally enrich via Ollama when enabled and opted in.
+
+    Hot paths (dashboard / readiness / workspace) must pass allow_ollama=False
+    so TRADE_OLLAMA_ENABLED does not add multi-second LLM latency per shipment.
+    """
     base = extract_attributes_rules(product_text)
     cfg = settings or get_settings()
-    if not cfg.ollama_enabled:
+    if not (allow_ollama and cfg.ollama_enabled):
         return base
     try:
         llm = _ollama_attributes(product_text, cfg)

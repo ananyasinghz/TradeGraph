@@ -43,6 +43,9 @@ include = ["backend*"]
 [tool.pytest.ini_options]
 addopts = "--strict-config --strict-markers --cov=backend.app --cov-report=term-missing --cov-fail-under=70"
 testpaths = ["backend/tests"]
+markers = [
+    "live_official: hits real CBIC/ICEGATE hosts; requires TRADE_LIVE_OFFICIAL_VERIFY=1",
+]
 
 [tool.coverage.run]
 branch = true

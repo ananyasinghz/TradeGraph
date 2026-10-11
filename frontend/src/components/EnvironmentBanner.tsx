@@ -128,13 +128,22 @@ export function EnvironmentBanner() {
             {sourceStatusOperator(status.source_connection_label)}
           </strong>
         </li>
-        <li>
+        <li data-testid="filing-calc-status">
           <span className="muted">{OPERATOR.bannerFilingCalc}</span>
-          <strong>
+          <strong data-testid="filing-calc-available">
             {status.customs_mode_available ? OPERATOR.bannerFilingYes : OPERATOR.bannerFilingNo}
           </strong>
           {status.customs_mode_hint ? (
-            <div className="muted">{status.customs_mode_hint}</div>
+            <div className="muted" data-testid="filing-calc-hint">
+              {status.customs_mode_hint}
+            </div>
+          ) : null}
+          {!status.customs_mode_available && (status.customs_mode_blockers?.length ?? 0) > 0 ? (
+            <ul className="muted" data-testid="filing-calc-blockers">
+              {status.customs_mode_blockers!.map((b) => (
+                <li key={b}>{b}</li>
+              ))}
+            </ul>
           ) : null}
         </li>
       </ul>

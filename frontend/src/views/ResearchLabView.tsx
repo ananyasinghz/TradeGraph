@@ -5,6 +5,7 @@ import { useState } from 'react';
 import { api } from '../services/api';
 import { InfoTip } from '../components/InfoTip';
 import { RESEARCH_MODE_OPTIONS } from '../content/askModes';
+import { DutyCoveragePanel } from '../sources/DutyCoveragePanel';
 
 export function ResearchLabView() {
   const [modes, setModes] = useState<string[]>(['adaptive', 'direct_lookup', 'fixed_multi']);
@@ -66,6 +67,9 @@ export function ResearchLabView() {
           <pre>{JSON.stringify(result, null, 2)}</pre>
         </div>
       )}
+      <div data-testid="tariff-coverage-matrix">
+        <DutyCoveragePanel />
+      </div>
     </section>
   );
 }

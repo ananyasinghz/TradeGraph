@@ -48,7 +48,7 @@ def test_ask_focus_tariff_without_query() -> None:
     body = response.json()
     assert "tariff_lookup" in body["tools_invoked"]
     assert body["result"]["tariffs"]
-    assert float(body["result"]["tariffs"][0]["rate"]) == 10.0
+    assert float(body["result"]["tariffs"][0]["rate"]) == 20.0
 
 
 def test_ask_focus_shipment_gaps() -> None:

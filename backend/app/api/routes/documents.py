@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from fastapi import APIRouter, Query
 
+from backend.app.api.auth_deps import OperatorDep
 from backend.app.api.dependencies import SessionDep
 from backend.app.domain.trade import DocumentRequirementOut, DocWhyRequiredOut
 from backend.app.services import checklist_service, document_service
@@ -14,6 +15,7 @@ router = APIRouter(prefix="/document-requirements", tags=["documents"])
 @router.get("/why", response_model=DocWhyRequiredOut)
 def document_why_required(
     session: SessionDep,
+    _principal: OperatorDep,
     doc_code: str = Query(...),
     origin: str = Query(default="BD"),
     destination: str = Query(default="IN"),
@@ -31,6 +33,7 @@ def document_why_required(
 @router.get("", response_model=list[DocumentRequirementOut])
 def list_requirements(
     session: SessionDep,
+    _principal: OperatorDep,
     origin: str | None = Query(default="BD"),
     destination: str | None = Query(default="IN"),
     hs: str | None = Query(default=None),

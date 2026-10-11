@@ -19,6 +19,8 @@ _SENSITIVE_SUFFIXES = (
     "/ingest/promote-cbic",
     "/eval/run",
     "/eval/hs-classify",
+    "/auth/whoami",
+    "/auth/audit",
 )
 
 

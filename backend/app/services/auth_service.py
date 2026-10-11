@@ -223,6 +223,22 @@ def get_principal(
     return resolve_principal(settings, authorization, session=session)
 
 
+def get_principal_optional(
+    settings: SettingsDep,
+    session: SessionDep,
+    authorization: Annotated[str | None, Header()] = None,
+) -> Principal:
+    if settings.auth_enabled and not authorization:
+        return Principal(
+            actor="anonymous",
+            role="viewer",
+            authenticated=False,
+            organization_id=settings.default_organization_id,
+            auth_method="none",
+        )
+    return resolve_principal(settings, authorization, session=session)
+
+
 PrincipalDep = Annotated[Principal, Depends(get_principal)]
 
 
@@ -237,6 +253,35 @@ def require_role(minimum: Role):
         return principal
 
     return _dep
+
+
+def require_publisher(
+    principal: PrincipalDep,
+    request: Request,
+) -> Principal:
+    """Reviewer+ and authenticated (unless TRADE_ALLOW_ANONYMOUS_PUBLISH for local demo)."""
+    if _ROLE_RANK[principal.role] < _ROLE_RANK["reviewer"]:
+        raise AppError(
+            code="FORBIDDEN",
+            message="Role reviewer or higher required to publish rates",
+            status_code=403,
+        )
+    settings: Settings = request.app.state.settings
+    if principal.authenticated:
+        return principal
+    if settings.allow_anonymous_publish and settings.environment in {
+        "development",
+        "test",
+    }:
+        return principal
+    raise AppError(
+        code="AUTH_REQUIRED",
+        message=(
+            "Authenticated reviewer required to publish. "
+            "Enable TRADE_AUTH_ENABLED or set TRADE_ALLOW_ANONYMOUS_PUBLISH=true for local demo only."
+        ),
+        status_code=401,
+    )
 
 
 def resolve_organization_id(
@@ -283,15 +328,41 @@ def write_audit(
     return row
 
 
-def whoami(settings: Settings, principal: Principal) -> AuthWhoAmI:
+def whoami(
+    settings: Settings,
+    principal: Principal,
+    session: Session | None = None,
+) -> AuthWhoAmI:
+    user_id = principal.user_id
+    display_name = None
+    prefs: dict[str, Any] = {}
+    mfa_required = False
+    if session is not None:
+        from backend.app.data.models import Organization
+        from backend.app.services import org_service
+
+        user = org_service.resolve_user_for_principal(session, principal, settings=settings)
+        if user is not None:
+            user_id = user.id
+            display_name = user.name
+            prefs = dict(user.notification_prefs or {})
+        org_id = principal.organization_id or settings.default_organization_id
+        org = session.get(Organization, org_id) if org_id else None
+        if org is not None:
+            mfa_required = bool(getattr(org, "mfa_required", False))
     return AuthWhoAmI(
         authenticated=principal.authenticated,
         auth_enabled=settings.auth_enabled,
+        allow_anonymous_publish=bool(settings.allow_anonymous_publish),
         actor=principal.actor,
         role=principal.role,
         email=principal.email,
         organization_id=principal.organization_id,
         auth_method=principal.auth_method,
+        user_id=user_id,
+        display_name=display_name,
+        notification_prefs=prefs,
+        mfa_required=mfa_required,
     )
 
 

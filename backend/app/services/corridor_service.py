@@ -31,6 +31,13 @@ def list_corridors(session: Session) -> list[CorridorOut]:
             origin_country=r.origin_country,
             destination_country=r.destination_country,
             status=r.status,
+            operational=bool(
+                getattr(r, "operational", False)
+                or (
+                    r.origin_country == "BD"
+                    and r.destination_country == "IN"
+                )
+            ),
             supported_hs_chapters=list(r.supported_hs_chapters or []),
             supported_regimes=list(r.supported_regimes or []),
             tariff_source_codes=list(r.tariff_source_codes or []),
@@ -92,6 +99,7 @@ def ensure_default_corridors(session: Session) -> None:
             origin_country="BD",
             destination_country="IN",
             status="demonstration",
+            operational=True,
             supported_hs_chapters=["61"],
             supported_regimes=["MFN", "SAFTA"],
             tariff_source_codes=["CBIC_NOTIFICATION_2026_Q3", "CURATED_MIRROR_CBIC_Q3", "IN_CBIC"],
@@ -111,4 +119,10 @@ def ensure_default_corridors(session: Session) -> None:
                     capability=cap,
                 )
             )
+    else:
+        existing.operational = True
+    # Only BD→IN is operational; clear the flag on any other corridors.
+    for other in session.scalars(select(Corridor)).all():
+        is_bd_in = other.origin_country == "BD" and other.destination_country == "IN"
+        other.operational = bool(is_bd_in)
     session.flush()

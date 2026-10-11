@@ -22,6 +22,7 @@ from backend.app.data.models import (
     DocumentRequirement,
     DocumentUpload,
     Evidence,
+    ExemptionRule,
     FieldMapping,
     HsCode,
     JobRun,
@@ -72,6 +73,7 @@ def seed(session: Session, catalog: dict[str, Any], *, force: bool = False) -> d
             Evidence,
             DocumentUpload,
             LineItem,
+            ExemptionRule,
             TariffRate,
             DocumentRequirement,
             HsCode,
@@ -141,17 +143,58 @@ def seed(session: Session, catalog: dict[str, Any], *, force: bool = False) -> d
         )
     session.flush()
 
+    from backend.app.services.component_provenance import attach_curated_ch61_defaults
+    import json
+
+    fixture_path = (
+        Path(__file__).resolve().parents[3]
+        / "config"
+        / "trade"
+        / "fixtures"
+        / "cbic"
+        / "duty_components"
+        / "ch61_bd_in_components.v1.json"
+    )
+    curated_pack: dict[str, Any] = {}
+    if fixture_path.is_file():
+        curated_pack = json.loads(fixture_path.read_text(encoding="utf-8"))
+
     for rate in catalog.get("tariff_rates", []):
         regime = rate.get("regime") or (
             "preferential" if rate.get("agreement_id") else "mfn"
         )
+        hs_code = str(rate["hs_code"])
+        components = dict(rate.get("duty_components") or {})
+        if (
+            hs_code.startswith("61")
+            and str(rate.get("origin", "")).upper() == "BD"
+            and str(rate.get("destination", "")).upper() == "IN"
+            and regime == "mfn"
+        ):
+            # Overlay curated fixture BCD/SWS citations when HS is listed.
+            bcd_map = (
+                ((curated_pack.get("components") or {}).get("bcd") or {}).get("rates_by_hs")
+                or {}
+            )
+            sws_block = (curated_pack.get("components") or {}).get("sws") or {}
+            for candidate in (hs_code, hs_code.replace(".", "")):
+                if candidate in bcd_map:
+                    components["bcd_pct"] = bcd_map[candidate]
+                    break
+            if sws_block.get("sws_pct_of_bcd") is not None:
+                components["sws_pct_of_bcd"] = sws_block["sws_pct_of_bcd"]
+            components = attach_curated_ch61_defaults(
+                components,
+                hs_code=hs_code,
+                effective_from=str(rate.get("effective_from") or "2026-01-01"),
+            )
         row = TariffRate(
-            hs_code=str(rate["hs_code"]),
+            hs_code=hs_code,
             origin=str(rate["origin"]).upper(),
             destination=str(rate["destination"]).upper(),
             rate=Decimal(str(rate["rate"])),
             rate_type=rate.get("rate_type", "ad_valorem_pct"),
-            duty_components=dict(rate.get("duty_components") or {}),
+            duty_components=components,
             agreement_id=rate.get("agreement_id"),
             effective_from=_parse_date(rate["effective_from"]) or date.today(),
             effective_to=_parse_date(rate.get("effective_to")),
@@ -242,6 +285,28 @@ def seed(session: Session, catalog: dict[str, Any], *, force: bool = False) -> d
             )
         )
 
+    for ex in catalog.get("exemption_rules", []):
+        row = ExemptionRule(
+            notification_id=str(ex["notification_id"]),
+            notification_year=int(ex["notification_year"]) if ex.get("notification_year") else None,
+            serial_no=str(ex["serial_no"]),
+            label=str(ex["label"]),
+            hs_match=str(ex["hs_match"]),
+            origin=str(ex.get("origin", "ALL")).upper(),
+            destination=str(ex.get("destination", "IN")).upper(),
+            condition_code=str(ex.get("condition_code", "none")),
+            condition_detail=str(ex.get("condition_detail") or ""),
+            effect_json=dict(ex.get("effect") or {}),
+            source_document_id=ex.get("source_document_id"),
+            effective_from=_parse_date(ex.get("effective_from")) or date.today(),
+            effective_to=_parse_date(ex.get("effective_to")),
+            status=ex.get("status", "active"),
+            data_quality=ex.get("data_quality", "illustrative"),
+        )
+        if ex.get("id"):
+            row.id = str(ex["id"])
+        session.add(row)
+
     # Seed a default watchlist row so change feed is visible after first load.
     if v2 is not None:
         from backend.app.services.org_service import ensure_demo_org
@@ -267,6 +332,7 @@ def seed(session: Session, catalog: dict[str, Any], *, force: bool = False) -> d
         "trade_agreements": len(catalog.get("trade_agreements", [])),
         "agreement_eligibility": len(catalog.get("agreement_eligibility", [])),
         "regulatory_chunks": len(catalog.get("regulatory_chunks", [])),
+        "exemption_rules": len(catalog.get("exemption_rules", [])),
         "watchlist_items": 1 if v2 is not None else 0,
     }
     session.add(

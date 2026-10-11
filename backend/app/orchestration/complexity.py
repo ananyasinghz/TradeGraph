@@ -17,6 +17,10 @@ IntentName = Literal[
 ComplexityLabel = Literal["simple", "moderate", "complex"]
 
 HS_RE = re.compile(r"\b(\d{4}\.\d{2}|\d{6,10})\b")
+CONCEPTUAL_RE = re.compile(
+    r"\b(what\s+is|what'?s|whats|explain|define|meaning\s+of|mean\s+by|tell\s+me\s+about)\b",
+    re.IGNORECASE,
+)
 
 
 @dataclass(frozen=True)
@@ -32,6 +36,11 @@ def _normalize_hs(raw: str) -> str:
     if len(digits) >= 6:
         return f"{digits[:4]}.{digits[4:6]}"
     return raw
+
+
+def is_conceptual_query(query: str) -> bool:
+    """True for definition / explain-style questions (good for grounded LLM)."""
+    return bool(CONCEPTUAL_RE.search((query or "").strip()))
 
 
 def detect_intents(query: str) -> list[IntentName]:
@@ -50,7 +59,11 @@ def detect_intents(query: str) -> list[IntentName]:
     if any(k in lower for k in ("duty", "tariff", "bcd", "rate", "hs code", "hs ")):
         found.append("tariff_lookup")
     if not found:
-        found.append("tariff_lookup")
+        # Conceptual questions default to light retrieval intent, not a blind tariff fan-out.
+        if is_conceptual_query(query):
+            found.append("regulation_retrieve")
+        else:
+            found.append("tariff_lookup")
     # Preserve order, unique
     seen: set[IntentName] = set()
     ordered: list[IntentName] = []

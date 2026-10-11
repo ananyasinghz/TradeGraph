@@ -1,0 +1,37 @@
+{
+  "pack_id": "ch61_bd_in_components.v1",
+  "corridor": { "origin": "BD", "destination": "IN" },
+  "chapter": "61",
+  "disclaimer": "Curated official-backed component pack for TradeGraph BD→IN Chapter 61. BCD/SWS are NOT derived from IGST (Rate) notifications. Not legal advice.",
+  "components": {
+    "bcd": {
+      "source_key": "curated_bcd_ch61_bd_in",
+      "source_document_id": "src_curated_bcd_ch61_v1",
+      "data_quality": "curated_official_backed",
+      "citation": "Illustrative Customs Tariff / BCD schedule excerpt for Chapter 61 BD→IN (curated mirror).",
+      "effective_from": "2026-01-01",
+      "rates_by_hs": {
+        "6109.10": 20.0,
+        "6109.90": 20.0,
+        "6105.10": 20.0
+      }
+    },
+    "sws": {
+      "source_key": "curated_sws_finance_act",
+      "source_document_id": "src_curated_sws_v1",
+      "data_quality": "curated_official_backed",
+      "citation": "Social Welfare Surcharge as a percentage of BCD (Finance Act style rule).",
+      "effective_from": "2026-01-01",
+      "sws_pct_of_bcd": 10.0
+    },
+    "igst": {
+      "source_key": "live_igst_notif_9_2025",
+      "notes": "Prefer live Notification No. 9/2025-Integrated Tax (Rate) when published; otherwise illustrative placeholder.",
+      "illustrative_pct_by_hs": {
+        "6109.10": 18.0,
+        "6109.90": 18.0,
+        "6105.10": 18.0
+      }
+    }
+  }
+}

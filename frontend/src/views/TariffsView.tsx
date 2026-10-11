@@ -3,6 +3,7 @@ import { api, type CoverageMiss, type FtaCheckResult, type TariffRate } from '..
 import { ContextAskButton } from '../components/ContextAskButton';
 import { CoverageMissPanel } from '../components/CoverageMissPanel';
 import { DataConfidenceBadge } from '../components/DataConfidenceBadge';
+import { DisclaimerFooter } from '../components/DisclaimerFooter';
 import { InfoTip } from '../components/InfoTip';
 import { OPERATOR } from '../content/operatorCopy';
 import { useOperatorPrefs } from '../content/useOperatorPrefs';
@@ -103,7 +104,12 @@ export function TariffsView() {
           <span className="label-with-tip">
             HS <InfoTip id="hs_code" />
           </span>
-          <input value={hs} onChange={(e) => setHs(e.target.value)} placeholder="6109.10" />
+          <input
+            data-testid="tariff-hs-input"
+            value={hs}
+            onChange={(e) => setHs(e.target.value)}
+            placeholder="6109.10"
+          />
         </label>
         <label>
           <span className="label-with-tip">
@@ -315,6 +321,7 @@ export function TariffsView() {
           )}
         </div>
       )}
+      <DisclaimerFooter compact />
     </section>
   );
 }

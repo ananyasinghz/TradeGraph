@@ -77,6 +77,9 @@ export function WelcomePanel({ onCreateShipment, onOpenGlossary }: WelcomePanelP
     <section className="welcome-panel" role="dialog" aria-label="Welcome to TradeGraph">
       <h2>{OPERATOR.welcomeTitle}</h2>
       <p className="muted">{blurb}</p>
+      <p className="muted welcome-role-note" data-testid="welcome-role-note">
+        {OPERATOR.welcomePersonaLabel}. {OPERATOR.welcomeServerRole}
+      </p>
       {!isStudent ? (
         <ul className="welcome-list">
           {caps.map((item) => (

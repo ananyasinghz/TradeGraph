@@ -27,6 +27,10 @@ def make_settings(**overrides: object) -> Settings:
         # Isolate from developer .env live-feed flags
         "live_feed_enabled": False,
         "source_fetch_scheduler_enabled": False,
+        "auth_enabled": False,
+        # Tests exercise publish paths without Bearer tokens unless overridden.
+        "allow_anonymous_publish": True,
+        "ollama_enabled": False,
     }
     values.update(overrides)
     return Settings.model_validate(values)

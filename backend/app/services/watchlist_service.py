@@ -36,12 +36,22 @@ def _item_out(session: Session, row: WatchlistItem) -> WatchlistItemOut:
     )
 
 
-def list_items(session: Session) -> list[WatchlistItemOut]:
-    rows = session.scalars(select(WatchlistItem).order_by(WatchlistItem.created_at.desc())).all()
+def list_items(
+    session: Session, *, organization_id: str | None = None
+) -> list[WatchlistItemOut]:
+    stmt = select(WatchlistItem).order_by(WatchlistItem.created_at.desc())
+    if organization_id:
+        stmt = stmt.where(WatchlistItem.organization_id == organization_id)
+    rows = session.scalars(stmt).all()
     return [_item_out(session, r) for r in rows]
 
 
-def add_item(session: Session, payload: WatchlistItemCreate) -> WatchlistItemOut:
+def add_item(
+    session: Session,
+    payload: WatchlistItemCreate,
+    *,
+    organization_id: str | None = None,
+) -> WatchlistItemOut:
     hs_code = payload.hs_code
     origin = payload.origin.upper()
     destination = payload.destination.upper()
@@ -97,18 +107,30 @@ def add_item(session: Session, payload: WatchlistItemCreate) -> WatchlistItemOut
         created_at=_now(),
         last_seen_rate_id=active[0].id if active else None,
         shipment_id=shipment_id,
-        organization_id=org.id,
+        organization_id=organization_id or org.id,
     )
     session.add(row)
     session.flush()
     return _item_out(session, row)
 
 
-def delete_item(session: Session, item_id: str) -> None:
+def delete_item(
+    session: Session, item_id: str, *, organization_id: str | None = None
+) -> None:
     row = session.get(WatchlistItem, item_id)
     if row is None:
         raise AppError(
             code="WATCHLIST_NOT_FOUND", message="Watchlist item not found", status_code=404
+        )
+    if (
+        organization_id
+        and row.organization_id
+        and row.organization_id != organization_id
+    ):
+        raise AppError(
+            code="ORG_FORBIDDEN",
+            message="Watchlist item not in your organization",
+            status_code=403,
         )
     session.delete(row)
     session.flush()
@@ -143,9 +165,14 @@ def _affected_shipments(
     return ids, titles
 
 
-def list_changes(session: Session) -> list[WatchlistChange]:
+def list_changes(
+    session: Session, *, organization_id: str | None = None
+) -> list[WatchlistChange]:
     """Emit supersession events for watched HS corridors from tariff history."""
-    items = session.scalars(select(WatchlistItem)).all()
+    stmt = select(WatchlistItem)
+    if organization_id:
+        stmt = stmt.where(WatchlistItem.organization_id == organization_id)
+    items = session.scalars(stmt).all()
     changes: list[WatchlistChange] = []
     for item in items:
         history = tariff_service.list_tariffs(

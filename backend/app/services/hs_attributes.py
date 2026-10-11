@@ -40,18 +40,42 @@ def extract_attributes_rules(product_text: str) -> ProductAttributes:
     elif any(x in t for x in ("woven", "woven fabric")):
         construction = "woven"
     garment = None
-    if "tshirt" in compact or "t-shirt" in t or "tee shirt" in t:
+    # Tee / T-shirt forms (including "t shirts", "tees")
+    if (
+        "tshirt" in compact
+        or "t-shirt" in t
+        or "tee shirt" in t
+        or re.search(r"\bt[\s-]?shirts?\b", t)
+        or re.search(r"\btees?\b", t)
+    ):
         garment = "tshirt"
+        if construction is None:
+            construction = "knit"
     elif "blouse" in t:
         garment = "blouse"
     elif any(x in t for x in ("trouser", "trousers", "slacks")) or (
         "pants" in t and "under" not in t
     ):
         garment = "trousers"
-    elif "shirt" in t:
-        garment = "shirt"
+    elif re.search(r"\bshirts?\b", t):
+        # "cotton shirts" without woven cue → treat as knit T-shirt style (ch.61)
+        # unless explicitly dress/woven/oxford/button.
+        woven_shirt = any(
+            x in t
+            for x in ("woven", "dress shirt", "oxford", "button-down", "button down", "formal")
+        )
+        if woven_shirt:
+            garment = "shirt"
+            if construction is None:
+                construction = "woven"
+        else:
+            garment = "tshirt"
+            if construction is None:
+                construction = "knit"
     elif any(x in t for x in ("jersey", "pullover", "sweater", "cardigan")):
         garment = "knit_top"
+        if construction is None:
+            construction = "knit"
     elif any(x in t for x in ("screw", "screws", "bolt", "bolts")):
         garment = "fastener"
     elif any(x in t for x in ("laptop", "computer", "notebook")):

@@ -23,7 +23,8 @@ async def _source_fetch_loop(app: FastAPI, settings: Settings) -> None:
             with factory() as session:
                 from backend.app.services import jobs_service
 
-                jobs_service.run_source_fetch_job(session, run_ingest=False)
+                # Live adapters auto-ingest; curated connections stay fetch-only.
+                jobs_service.run_source_fetch_job(session, run_ingest=None)
                 session.commit()
             logger.info("source_fetch_scheduler completed")
         except asyncio.CancelledError:

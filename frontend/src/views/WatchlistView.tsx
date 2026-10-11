@@ -1,8 +1,13 @@
 import { useEffect, useState } from 'react';
 import { api, type WatchlistChange, type WatchlistItem } from '../services/api';
 import { InfoTip } from '../components/InfoTip';
+import { OPERATOR } from '../content/operatorCopy';
 
-export function WatchlistView() {
+interface WatchlistViewProps {
+  onOpenShipment?: (shipmentId: string) => void;
+}
+
+export function WatchlistView({ onOpenShipment }: WatchlistViewProps) {
   const [items, setItems] = useState<WatchlistItem[]>([]);
   const [changes, setChanges] = useState<WatchlistChange[]>([]);
   const [hs, setHs] = useState('6109.10');
@@ -53,6 +58,18 @@ export function WatchlistView() {
             {i.shipment_title ? (
               <span className="muted"> · case “{i.shipment_title}”</span>
             ) : null}
+            {i.shipment_id && onOpenShipment ? (
+              <>
+                {' '}
+                <button
+                  type="button"
+                  className="linkish"
+                  onClick={() => onOpenShipment(i.shipment_id!)}
+                >
+                  {OPERATOR.openCase}
+                </button>
+              </>
+            ) : null}
           </li>
         ))}
       </ul>
@@ -73,6 +90,24 @@ export function WatchlistView() {
                   Affects: {(c.affected_shipment_titles || []).join(', ')}
                 </div>
               )}
+              {(c.affected_shipment_ids || []).length > 0 && onOpenShipment ? (
+                <div className="toolbar">
+                  {c.affected_shipment_ids!.map((id, idx) => (
+                    <button
+                      key={id}
+                      type="button"
+                      className="linkish"
+                      data-testid="open-affected-case"
+                      onClick={() => onOpenShipment(id)}
+                    >
+                      {OPERATOR.openCase}
+                      {(c.affected_shipment_titles || [])[idx]
+                        ? ` · ${c.affected_shipment_titles![idx]}`
+                        : ''}
+                    </button>
+                  ))}
+                </div>
+              ) : null}
             </li>
           ))}
         </ul>

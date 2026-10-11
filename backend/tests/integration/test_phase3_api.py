@@ -6,7 +6,7 @@ from backend.tests.helpers.db import make_client
 
 
 def test_adaptive_uses_fewer_tools_than_fixed_on_simple_tariff() -> None:
-    client = make_client()
+    client = make_client(ollama_enabled=False)
     query = {
         "query": "What is the import duty for HS 6109.10 from Bangladesh to India?",
         "as_of": "2026-06-01",
@@ -21,12 +21,12 @@ def test_adaptive_uses_fewer_tools_than_fixed_on_simple_tariff() -> None:
     ).json()
     assert adaptive["tool_count"] < fixed["tool_count"]
     assert adaptive["tokens_in"] + adaptive["tokens_out"] < fixed["tokens_in"] + fixed["tokens_out"]
-    assert float(adaptive["result"]["tariffs"][0]["rate"]) == 10.0
-    assert float(fixed["result"]["tariffs"][0]["rate"]) == 10.0
+    assert float(adaptive["result"]["tariffs"][0]["rate"]) == 20.0
+    assert float(fixed["result"]["tariffs"][0]["rate"]) == 20.0
 
 
 def test_always_llm_uses_more_tokens_than_adaptive() -> None:
-    client = make_client()
+    client = make_client(ollama_enabled=False)
     query = {
         "query": "What is the import duty for HS 6109.10 from Bangladesh to India?",
         "as_of": "2026-06-01",

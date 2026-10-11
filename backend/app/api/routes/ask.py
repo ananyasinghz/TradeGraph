@@ -79,10 +79,9 @@ def ask(
         hs_code=hs_code,
         invoice_value=invoice_value,
         currency=currency,
-        product_text=product_text,
         shipment_id=payload.shipment_id,
-        mode=mode,
-        settings=settings,
+        orchestration_mode=mode,
+        focus=payload.focus,
     )
     audit_from_request(
         session,

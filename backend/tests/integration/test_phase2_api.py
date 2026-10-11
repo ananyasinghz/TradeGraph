@@ -27,7 +27,7 @@ def test_fta_check_returns_graph_path_and_preferential_rate() -> None:
         "unknown",
     }
     assert float(body["preferential_rate_pct"]) == 5.0
-    assert float(body["mfn_rate_pct"]) == 10.0
+    assert float(body["mfn_rate_pct"]) == 20.0
     assert body["certificate_doc_code"] == "certificate_of_origin"
     assert len(body["graph_path"]) >= 1
     assert any(e.get("kind") == "fta_eligibility" for e in body["evidence"])
@@ -51,8 +51,8 @@ def test_watchlist_shows_seeded_rate_change() -> None:
     assert any(i["hs_code"] == "6109.10" for i in items)
     changes = client.get("/api/v1/watchlist/changes").json()
     assert len(changes) >= 1
-    assert float(changes[0]["old_rate"]) == 12.0
-    assert float(changes[0]["new_rate"]) == 10.0
+    assert float(changes[0]["old_rate"]) == 22.0
+    assert float(changes[0]["new_rate"]) == 20.0
 
 
 def test_ask_fta_uses_graph_vector_route() -> None:

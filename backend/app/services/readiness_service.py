@@ -319,6 +319,28 @@ def score_shipment(session: Session, shipment_id: str) -> ReadinessOut:
     else:
         overall = "partial"
 
+    blocked_reasons: list[str] = []
+    if not hs_ok:
+        blocked_reasons.append("missing_hs")
+    elif not hs_confirmed:
+        blocked_reasons.append("hs_unconfirmed")
+    if not calc_ok:
+        blocked_reasons.append("missing_calculation")
+    elif not calc_complete:
+        blocked_reasons.append("incomplete_freight_insurance")
+    if docs_incomplete:
+        blocked_reasons.append("documents_incomplete")
+    if not upload_count:
+        blocked_reasons.append("missing_uploads")
+    if fta_needs:
+        blocked_reasons.append("fta_needs_evidence")
+    if classification_uncertain:
+        blocked_reasons.append("classification_uncertain")
+    if source_stale:
+        blocked_reasons.append("source_stale")
+    if human_review:
+        blocked_reasons.append("human_review_required")
+
     return ReadinessOut(
         score=total,
         band=band,  # type: ignore[arg-type]
@@ -331,6 +353,7 @@ def score_shipment(session: Session, shipment_id: str) -> ReadinessOut:
         human_review_required=human_review,
         factors=factors,
         missing=missing,
+        blocked_reasons=blocked_reasons,
         statuses=statuses,
         complete_items=complete_items,
         missing_items=missing_items,

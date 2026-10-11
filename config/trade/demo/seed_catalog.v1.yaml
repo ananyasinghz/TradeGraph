@@ -1,7 +1,9 @@
 # Illustrative BD→IN chapter 61 seed for TradeGraph (Phase 1+2).
 # NOT official legal rates — UI must show data_quality badges.
+# Duty stack mirrors ICEGATE-style components (BCD/AIDC/Health/SWS/IGST/CC).
+# Exemption Sl. Nos. are seeded demos only — not live CBIC notifications.
 
-fingerprint: trade_seed.bd_in_61.v2
+fingerprint: trade_seed.bd_in_61.v3
 
 sources:
   - id: src_in_cbic_illustrative_2025
@@ -28,6 +30,14 @@ sources:
     status: published
     source_kind: curated_dataset
     notes: "Synthetic RoO text for FTA / retrieval demos only."
+  - id: src_in_exemption_illustrative
+    title: "Illustrative customs exemption notification excerpts (prototype)"
+    publisher: "TradeGraph prototype corpus"
+    url: "https://example.invalid/tradegraph/illustrative-exemptions"
+    effective_from: "2024-01-01"
+    status: published
+    source_kind: curated_dataset
+    notes: "Synthetic notification Sl. Nos. for duty-savings demos. Not official CBIC text."
 
 parties:
   - id: party_bd_exporter_demo
@@ -74,15 +84,37 @@ hs_codes:
     description: "Women's or girls' briefs and panties, of cotton, knitted or crocheted"
     chapter: "61"
     parent_code: "6108"
+  # Chapter 62 nomenclature only (no BCD/IGST rates until curated fixtures exist).
+  - code: "6203.42"
+    description: "Men's or boys' trousers, bib and brace overalls, breeches and shorts, of cotton"
+    chapter: "62"
+    parent_code: "6203"
+  - code: "6204.62"
+    description: "Women's or girls' trousers, bib and brace overalls, breeches and shorts, of cotton"
+    chapter: "62"
+    parent_code: "6204"
+  - code: "6205.20"
+    description: "Men's or boys' shirts, of cotton"
+    chapter: "62"
+    parent_code: "6205"
 
 # Rates are ILLUSTRATIVE. version 1 superseded by version 2 for selected HS.
+# Full stack for 6109.10 (~49% total on AV when BCD 20 + AIDC 5 + SWS + IGST 18).
 tariff_rates:
   - hs_code: "6109.10"
     origin: BD
     destination: IN
-    rate: 12.0
+    rate: 22.0
     rate_type: ad_valorem_pct
-    duty_components: { bcd_pct: 12.0, sws_pct_of_bcd: 10.0, igst_pct: 5.0 }
+    duty_components:
+      {
+        bcd_pct: 22.0,
+        aidc_pct: 5.0,
+        health_cess_pct: 0.0,
+        sws_pct_of_bcd: 10.0,
+        igst_pct: 18.0,
+        compensation_cess_pct: 0.0,
+      }
     effective_from: "2025-01-01"
     effective_to: "2025-12-31"
     source_document_id: src_in_cbic_illustrative_2025
@@ -92,21 +124,38 @@ tariff_rates:
   - hs_code: "6109.10"
     origin: BD
     destination: IN
-    rate: 10.0
+    rate: 20.0
     rate_type: ad_valorem_pct
-    duty_components: { bcd_pct: 10.0, sws_pct_of_bcd: 10.0, igst_pct: 5.0 }
+    duty_components:
+      {
+        bcd_pct: 20.0,
+        aidc_pct: 5.0,
+        health_cess_pct: 0.0,
+        sws_pct_of_bcd: 10.0,
+        igst_pct: 18.0,
+        compensation_cess_pct: 0.0,
+      }
     effective_from: "2026-01-01"
     effective_to: null
     source_document_id: src_in_cbic_illustrative_2026
     version: 2
     status: active
     data_quality: illustrative
+    notes: "Illustrative full MFN stack (~49.9% total duty on AV)."
   - hs_code: "6109.90"
     origin: BD
     destination: IN
-    rate: 10.0
+    rate: 20.0
     rate_type: ad_valorem_pct
-    duty_components: { bcd_pct: 10.0, sws_pct_of_bcd: 10.0, igst_pct: 5.0 }
+    duty_components:
+      {
+        bcd_pct: 20.0,
+        aidc_pct: 5.0,
+        health_cess_pct: 0.0,
+        sws_pct_of_bcd: 10.0,
+        igst_pct: 18.0,
+        compensation_cess_pct: 0.0,
+      }
     effective_from: "2026-01-01"
     effective_to: null
     source_document_id: src_in_cbic_illustrative_2026
@@ -116,9 +165,17 @@ tariff_rates:
   - hs_code: "6105.10"
     origin: BD
     destination: IN
-    rate: 10.0
+    rate: 20.0
     rate_type: ad_valorem_pct
-    duty_components: { bcd_pct: 10.0, sws_pct_of_bcd: 10.0, igst_pct: 5.0 }
+    duty_components:
+      {
+        bcd_pct: 20.0,
+        aidc_pct: 5.0,
+        health_cess_pct: 0.0,
+        sws_pct_of_bcd: 10.0,
+        igst_pct: 18.0,
+        compensation_cess_pct: 0.0,
+      }
     effective_from: "2026-01-01"
     effective_to: null
     source_document_id: src_in_cbic_illustrative_2026
@@ -128,9 +185,17 @@ tariff_rates:
   - hs_code: "6106.10"
     origin: BD
     destination: IN
-    rate: 10.0
+    rate: 20.0
     rate_type: ad_valorem_pct
-    duty_components: { bcd_pct: 10.0, sws_pct_of_bcd: 10.0, igst_pct: 5.0 }
+    duty_components:
+      {
+        bcd_pct: 20.0,
+        aidc_pct: 5.0,
+        health_cess_pct: 0.0,
+        sws_pct_of_bcd: 10.0,
+        igst_pct: 18.0,
+        compensation_cess_pct: 0.0,
+      }
     effective_from: "2026-01-01"
     effective_to: null
     source_document_id: src_in_cbic_illustrative_2026
@@ -140,9 +205,17 @@ tariff_rates:
   - hs_code: "6110.20"
     origin: BD
     destination: IN
-    rate: 10.0
+    rate: 20.0
     rate_type: ad_valorem_pct
-    duty_components: { bcd_pct: 10.0, sws_pct_of_bcd: 10.0, igst_pct: 12.0 }
+    duty_components:
+      {
+        bcd_pct: 20.0,
+        aidc_pct: 5.0,
+        health_cess_pct: 0.0,
+        sws_pct_of_bcd: 10.0,
+        igst_pct: 12.0,
+        compensation_cess_pct: 0.0,
+      }
     effective_from: "2026-01-01"
     effective_to: null
     source_document_id: src_in_cbic_illustrative_2026
@@ -152,9 +225,17 @@ tariff_rates:
   - hs_code: "6104.42"
     origin: BD
     destination: IN
-    rate: 10.0
+    rate: 20.0
     rate_type: ad_valorem_pct
-    duty_components: { bcd_pct: 10.0, sws_pct_of_bcd: 10.0, igst_pct: 5.0 }
+    duty_components:
+      {
+        bcd_pct: 20.0,
+        aidc_pct: 5.0,
+        health_cess_pct: 0.0,
+        sws_pct_of_bcd: 10.0,
+        igst_pct: 18.0,
+        compensation_cess_pct: 0.0,
+      }
     effective_from: "2026-01-01"
     effective_to: null
     source_document_id: src_in_cbic_illustrative_2026
@@ -164,9 +245,17 @@ tariff_rates:
   - hs_code: "6111.20"
     origin: BD
     destination: IN
-    rate: 10.0
+    rate: 20.0
     rate_type: ad_valorem_pct
-    duty_components: { bcd_pct: 10.0, sws_pct_of_bcd: 10.0, igst_pct: 5.0 }
+    duty_components:
+      {
+        bcd_pct: 20.0,
+        aidc_pct: 5.0,
+        health_cess_pct: 0.0,
+        sws_pct_of_bcd: 10.0,
+        igst_pct: 18.0,
+        compensation_cess_pct: 0.0,
+      }
     effective_from: "2026-01-01"
     effective_to: null
     source_document_id: src_in_cbic_illustrative_2026
@@ -176,13 +265,70 @@ tariff_rates:
   - hs_code: "6108.21"
     origin: BD
     destination: IN
-    rate: 10.0
+    rate: 20.0
     rate_type: ad_valorem_pct
-    duty_components: { bcd_pct: 10.0, sws_pct_of_bcd: 10.0, igst_pct: 5.0 }
+    duty_components:
+      {
+        bcd_pct: 20.0,
+        aidc_pct: 5.0,
+        health_cess_pct: 0.0,
+        sws_pct_of_bcd: 10.0,
+        igst_pct: 18.0,
+        compensation_cess_pct: 0.0,
+      }
     effective_from: "2026-01-01"
     effective_to: null
     source_document_id: src_in_cbic_illustrative_2026
     version: 1
+    status: active
+    data_quality: illustrative
+
+# Structured exemption / notification Sl. Nos. (deterministic eligibility only).
+exemption_rules:
+  - id: ex_demo_50_2017_sl282_610910
+    notification_id: "50/2017-Customs"
+    notification_year: 2017
+    serial_no: "282"
+    label: "Concessional BCD for knitted cotton T-shirts (illustrative Sl. 282)"
+    hs_match: "6109.10"
+    origin: BD
+    destination: IN
+    condition_code: fta_coo
+    condition_detail: "Valid Certificate of Origin required; reduces BCD to 5% and zeroes AIDC."
+    effect: { bcd_pct: 5.0, aidc_pct: 0.0 }
+    source_document_id: src_in_exemption_illustrative
+    effective_from: "2026-01-01"
+    effective_to: null
+    status: active
+    data_quality: illustrative
+  - id: ex_demo_50_2017_sl280_6109
+    notification_id: "50/2017-Customs"
+    notification_year: 2017
+    serial_no: "280"
+    label: "Heading 6109 concessional BCD with CoO (illustrative Sl. 280)"
+    hs_match: "6109"
+    origin: BD
+    destination: IN
+    condition_code: fta_coo
+    condition_detail: "Applies to heading 6109 when CoO is on file; BCD 10%."
+    effect: { bcd_pct: 10.0, aidc_pct: 0.0 }
+    source_document_id: src_in_exemption_illustrative
+    effective_from: "2026-01-01"
+    status: active
+    data_quality: illustrative
+  - id: ex_demo_uncond_health_zero
+    notification_id: "11/2021-Customs"
+    notification_year: 2021
+    serial_no: "1"
+    label: "Health CESS nil confirmation for apparel (illustrative)"
+    hs_match: "61"
+    origin: ALL
+    destination: IN
+    condition_code: none
+    condition_detail: "Illustrative confirmation that Health CESS remains 0 for chapter 61 apparel."
+    effect: { health_cess_pct: 0.0 }
+    source_document_id: src_in_exemption_illustrative
+    effective_from: "2026-01-01"
     status: active
     data_quality: illustrative
 

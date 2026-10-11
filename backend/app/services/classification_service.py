@@ -62,9 +62,18 @@ def _prior_boost(
     if g == "tshirt" and digits.startswith("6109"):
         boost += 0.45
         reasons.append("T-shirt cue -> heading 6109")
+    if g == "tshirt" and digits.startswith(("6203", "6204", "6205", "6206")):
+        boost -= 0.35
+        reasons.append("downrank woven jackets/shirts for T-shirt query")
     if g == "shirt" and digits.startswith("6105"):
         boost += 0.25
         reasons.append("shirt cue -> heading 6105")
+    if g == "shirt" and c == "woven" and digits.startswith("6205"):
+        boost += 0.3
+        reasons.append("woven shirt -> heading 6205")
+    if g == "shirt" and digits.startswith(("6203", "6204")):
+        boost -= 0.25
+        reasons.append("downrank jackets/ensembles for shirt query")
     if g == "blouse" and digits.startswith("6106"):
         boost += 0.25
         reasons.append("blouse cue -> heading 6106")
@@ -144,6 +153,7 @@ def suggest_candidates(
     chapter: str | None = None,
     limit: int = 5,
     attributes: ProductAttributes | None = None,
+    allow_ollama: bool = False,
 ) -> ClassificationCandidatesOut:
     text = (product_text or "").strip()
     if not text:
@@ -153,7 +163,9 @@ def suggest_candidates(
             status_code=400,
         )
     product_tokens = _tokens(text)
-    attrs = attributes or hs_attribute_service.extract_product_attributes(text)
+    attrs = attributes or hs_attribute_service.extract_product_attributes(
+        text, allow_ollama=allow_ollama
+    )
 
     fts_hits = hs_catalog_service.fts_search(session, text, limit=50)
     if not fts_hits:
@@ -223,13 +235,21 @@ def suggest_candidates(
 
 
 def candidates_for_shipment(
-    session: Session, shipment_id: str, *, limit: int = 5
+    session: Session,
+    shipment_id: str,
+    *,
+    limit: int = 5,
+    allow_ollama: bool = False,
 ) -> ClassificationCandidatesOut:
     row = session.get(Shipment, shipment_id)
     if row is None:
         raise AppError(code="SHIPMENT_NOT_FOUND", message="Shipment not found", status_code=404)
     return suggest_candidates(
-        session, product_text=row.product_text, chapter=None, limit=limit
+        session,
+        product_text=row.product_text,
+        chapter=None,
+        limit=limit,
+        allow_ollama=allow_ollama,
     )
 
 
@@ -238,20 +258,39 @@ def confirm_classification(
 ) -> ShipmentOut:
     from datetime import UTC, datetime
 
-    hs = session.get(HsCode, payload.hs_code)
+    effective_hs = (payload.override_hs or payload.hs_code).strip()
+    hs = session.get(HsCode, effective_hs)
     if hs is None:
         raise AppError(
             code="HS_NOT_IN_CATALOG",
-            message=f"HS code {payload.hs_code} is not in the local catalog",
+            message=f"HS code {effective_hs} is not in the local catalog",
+            status_code=400,
+        )
+    if payload.override_hs and not (payload.reason or "").strip():
+        raise AppError(
+            code="OVERRIDE_REASON_REQUIRED",
+            message="Provide a reason when confirming with override_hs",
             status_code=400,
         )
     row = session.get(Shipment, shipment_id)
     if row is None:
         raise AppError(code="SHIPMENT_NOT_FOUND", message="Shipment not found", status_code=404)
+    from backend.app.services.shipment_service import _assert_mutable
+
+    _assert_mutable(row, action="confirm classification")
+    assumptions = dict(getattr(row, "assumptions_json", None) or {})
+    if payload.override_hs:
+        assumptions["hs_override"] = {
+            "candidate_hs": payload.hs_code,
+            "override_hs": effective_hs,
+            "reason": (payload.reason or "").strip(),
+        }
+    elif "hs_override" in assumptions:
+        assumptions.pop("hs_override", None)
     shipment_service.update_shipment(
         session,
         shipment_id,
-        ShipmentUpdate(hs_code_working=payload.hs_code),
+        ShipmentUpdate(hs_code_working=effective_hs, assumptions=assumptions),
     )
     row = session.get(Shipment, shipment_id)
     assert row is not None
@@ -264,6 +303,25 @@ def confirm_classification(
     ).first()
     if prior is not None:
         shipment_service.build_shipment_checklist(session, shipment_id)
+    from backend.app.services import timeline_service
+
+    timeline_service.record_event(
+        session,
+        scenario_id=shipment_id,
+        organization_id=row.organization_id,
+        event_type="hs_change",
+        summary=(
+            f"HS overridden to {effective_hs}"
+            if payload.override_hs
+            else f"HS confirmed as {effective_hs}"
+        ),
+        payload={
+            "hs_code": payload.hs_code,
+            "override_hs": payload.override_hs,
+            "reason": payload.reason,
+            "effective_hs": effective_hs,
+        },
+    )
     return shipment_service.get_shipment(session, shipment_id)
 
 

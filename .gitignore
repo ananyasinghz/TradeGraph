@@ -31,6 +31,7 @@ data/archives/
 data/splits/
 data/evaluation/
 data/runtime/
+data/uploads/
 dataset/
 *.csv
 *.parquet

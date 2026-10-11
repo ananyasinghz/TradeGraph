@@ -4,6 +4,9 @@ from __future__ import annotations
 
 import base64
 import hashlib
+import io
+import re
+import zipfile
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any, Literal
@@ -11,7 +14,7 @@ from typing import Any, Literal
 from sqlalchemy import or_, select
 from sqlalchemy.orm import Session
 
-from backend.app.core.config import get_settings
+from backend.app.core.config import Settings, get_settings
 from backend.app.core.errors import AppError
 from backend.app.data.models import DocumentRequirement, DocumentUpload, Shipment, ShipmentChecklist
 from backend.app.domain.trade import (
@@ -29,6 +32,12 @@ from backend.app.services import pdf_util, retrieval_service
 
 DraftKind = Literal["commercial_invoice", "packing_list", "checklist"]
 _VALID_STATUS: set[str] = {"not_started", "draft", "needs_review", "ready"}
+_DOC_CODE_SAFE = re.compile(r"[^a-zA-Z0-9._-]+")
+
+
+def _safe_doc_code(doc_code: str) -> str:
+    cleaned = _DOC_CODE_SAFE.sub("_", (doc_code or "").strip())
+    return cleaned[:64] or "document"
 
 
 def _now() -> datetime:
@@ -102,23 +111,36 @@ def upload_document(
     uploaded_by: str | None = None,
     notes: str | None = None,
     mark_ready: bool = True,
+    settings: Settings | None = None,
 ) -> DocumentUploadOut:
     row = session.get(Shipment, shipment_id)
     if row is None:
         raise AppError(code="SHIPMENT_NOT_FOUND", message="Shipment not found", status_code=404)
-    settings = get_settings()
-    max_bytes = settings.upload_max_bytes
+    # Any non-empty doc_code is accepted (checklist membership is optional).
+    raw_code = (doc_code or "").strip()
+    if not raw_code:
+        raise AppError(
+            code="DOC_CODE_REQUIRED",
+            message="doc_code is required for uploads",
+            status_code=400,
+        )
+    path_code = _safe_doc_code(raw_code)
+    resolved = settings or get_settings()
+    max_bytes = resolved.upload_max_bytes
     if len(content) > max_bytes:
         raise AppError(
             code="UPLOAD_TOO_LARGE",
             message=f"Upload exceeds max size of {max_bytes} bytes",
             status_code=413,
         )
+    from backend.app.services import av_scan
+
+    av_scan.scan_upload(content, filename=filename, settings=resolved)
     safe_name = filename.replace("/", "_").replace("\\", "_")
     ext = Path(safe_name).suffix.lower().lstrip(".")
     allowed = {
         e.strip().lower()
-        for e in (settings.upload_allowed_extensions or "").split(",")
+        for e in (resolved.upload_allowed_extensions or "").split(",")
         if e.strip()
     }
     if allowed and ext not in allowed:
@@ -127,14 +149,14 @@ def upload_document(
             message=f"File type .{ext or '?'} not allowed. Allowed: {', '.join(sorted(allowed))}",
             status_code=415,
         )
-    dest_dir = Path(settings.data_dir) / "uploads" / shipment_id
+    dest_dir = Path(resolved.data_dir) / "uploads" / shipment_id
     dest_dir.mkdir(parents=True, exist_ok=True)
     checksum = hashlib.sha256(content).hexdigest()
-    storage = dest_dir / f"{doc_code}_{checksum[:12]}_{safe_name}"
+    storage = dest_dir / f"{path_code}_{checksum[:12]}_{safe_name}"
     storage.write_bytes(content)
     upload = DocumentUpload(
         shipment_id=shipment_id,
-        doc_code=doc_code,
+        doc_code=raw_code,
         filename=safe_name,
         content_type=content_type or "application/octet-stream",
         storage_path=str(storage),
@@ -150,7 +172,7 @@ def upload_document(
             items = [normalize_checklist_item(i) for i in checklist.items_json or []]
             updated: list[ChecklistItemOut] = []
             for item in items:
-                if item.doc_code == doc_code:
+                if item.doc_code == raw_code:
                     updated.append(
                         ChecklistItemOut(
                             doc_code=item.doc_code,
@@ -461,3 +483,51 @@ def export_draft(
             pdf_base64=base64.b64encode(pdf_bytes).decode("ascii"),
         )
     return DraftExportOut(kind=kind, filename=filename, text=text)
+
+
+_PACK_DISCLAIMER = """\
+TradeGraph clearance pack — DISCLAIMER
+
+This ZIP contains prototype drafts and uploaded workspace files only.
+It is not an official customs filing and must not be treated as a
+government-approved submission package.
+
+Verify all HS codes, duty rates, FTA evidence, and document originals
+with a licensed broker or competent authority before use.
+"""
+
+
+def build_clearance_pack(session: Session, shipment_id: str) -> bytes:
+    """Build a ZIP with draft forms, checklist, uploads, and DISCLAIMER.txt."""
+    row = session.get(Shipment, shipment_id)
+    if row is None:
+        raise AppError(code="SHIPMENT_NOT_FOUND", message="Shipment not found", status_code=404)
+
+    checklist = _latest_checklist(session, shipment_id)
+    if checklist is None:
+        from backend.app.services import shipment_service
+
+        shipment_service.build_shipment_checklist(session, shipment_id)
+
+    buf = io.BytesIO()
+    with zipfile.ZipFile(buf, mode="w", compression=zipfile.ZIP_DEFLATED) as zf:
+        zf.writestr("DISCLAIMER.txt", _PACK_DISCLAIMER)
+        for kind in ("commercial_invoice", "packing_list", "checklist"):
+            draft = export_draft(session, shipment_id, kind, as_pdf=False)  # type: ignore[arg-type]
+            zf.writestr(f"drafts/{draft.filename}", draft.text or "")
+        uploads = session.scalars(
+            select(DocumentUpload)
+            .where(DocumentUpload.shipment_id == shipment_id)
+            .order_by(DocumentUpload.uploaded_at.asc())
+        ).all()
+        for upload in uploads:
+            path = Path(upload.storage_path) if upload.storage_path else None
+            arcname = f"uploads/{upload.doc_code}_{upload.filename}"
+            if path is not None and path.is_file():
+                zf.write(path, arcname=arcname)
+            else:
+                zf.writestr(
+                    arcname + ".missing.txt",
+                    f"Upload {upload.id} referenced but file not found on disk.\n",
+                )
+    return buf.getvalue()

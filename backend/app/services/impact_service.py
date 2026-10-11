@@ -18,8 +18,44 @@ def _now() -> datetime:
     return datetime.now(UTC)
 
 
+def _component_deltas(old_comps: dict | None, new_comps: dict | None) -> dict[str, object]:
+    from backend.app.services.component_provenance import COMPONENT_KEYS, flatten_rates
+
+    old_flat = flatten_rates(old_comps)
+    new_flat = flatten_rates(new_comps)
+    deltas: dict[str, object] = {}
+    for key in COMPONENT_KEYS:
+        o = old_flat.get(key)
+        n = new_flat.get(key)
+        if o != n:
+            deltas[key] = {"old": o, "new": n}
+    return deltas
+
+
 def _impact_out(session: Session, row: ScenarioImpact) -> ScenarioImpactOut:
+    from backend.app.services.component_provenance import applicable_stack_signature
+
     ship = session.get(Shipment, row.shipment_id)
+    old_tariff = (
+        session.get(TariffRate, row.old_tariff_rate_id) if row.old_tariff_rate_id else None
+    )
+    new_tariff = (
+        session.get(TariffRate, row.new_tariff_rate_id) if row.new_tariff_rate_id else None
+    )
+    old_sig = (
+        applicable_stack_signature(old_tariff.duty_components) if old_tariff else None
+    )
+    new_sig = (
+        applicable_stack_signature(new_tariff.duty_components) if new_tariff else None
+    )
+    deltas = (
+        _component_deltas(
+            old_tariff.duty_components if old_tariff else None,
+            new_tariff.duty_components if new_tariff else None,
+        )
+        if old_tariff or new_tariff
+        else {}
+    )
     return ScenarioImpactOut(
         id=row.id,
         shipment_id=row.shipment_id,
@@ -47,6 +83,9 @@ def _impact_out(session: Session, row: ScenarioImpact) -> ScenarioImpactOut:
         acknowledged_at=row.acknowledged_at,
         acknowledged_by=row.acknowledged_by,
         dedupe_key=row.dedupe_key,
+        old_stack_signature=old_sig,
+        new_stack_signature=new_sig,
+        component_deltas=deltas,
     )
 
 
@@ -69,11 +108,25 @@ def list_impacts(
 
 
 def acknowledge_impact(
-    session: Session, impact_id: str, *, actor: str = "operator"
+    session: Session,
+    impact_id: str,
+    *,
+    actor: str = "operator",
+    organization_id: str | None = None,
 ) -> ScenarioImpactOut:
     row = session.get(ScenarioImpact, impact_id)
     if row is None:
         raise AppError(code="IMPACT_NOT_FOUND", message="Impact not found", status_code=404)
+    if (
+        organization_id
+        and row.organization_id
+        and row.organization_id != organization_id
+    ):
+        raise AppError(
+            code="ORG_FORBIDDEN",
+            message="Impact not in your organization",
+            status_code=403,
+        )
     row.acknowledged_at = _now()
     row.acknowledged_by = actor
     session.flush()
@@ -129,7 +182,13 @@ def record_impacts_for_new_tariff(
     """Recalculate matching scenarios and persist impact rows."""
     if old_tariff is None:
         return []
-    if old_tariff.rate == new_tariff.rate:
+    from backend.app.services.component_provenance import applicable_stack_signature
+
+    # Alert only when applicable merged component rates change (ignore provenance-only churn).
+    old_sig = applicable_stack_signature(old_tariff.duty_components)
+    new_sig = applicable_stack_signature(new_tariff.duty_components)
+    same_rate = old_tariff.rate == new_tariff.rate
+    if same_rate and old_sig == new_sig:
         return []
 
     ships = matching_scenarios(
@@ -153,6 +212,12 @@ def record_impacts_for_new_tariff(
         ).first()
         if existing is not None:
             continue
+
+        uncertain = (
+            ship.hs_confirmed_at is None
+            or ship.freight is None
+            or ship.insurance is None
+        )
 
         old_snap = session.scalars(
             select(CalculationSnapshot)
@@ -179,48 +244,70 @@ def record_impacts_for_new_tariff(
         if avail.customs_mode_available:
             mode = "customs"
 
-        try:
-            breakdown = cost_service.calculate(
-                session,
-                LandedCostInput(
-                    hs_code=ship.hs_code_working,
-                    origin=ship.origin,
-                    destination=ship.destination,
-                    as_of=ship.as_of_date,
-                    invoice_value=ship.invoice_value,
-                    currency=ship.currency,
-                    incoterm=ship.incoterm,
-                    freight=ship.freight,
-                    insurance=ship.insurance,
-                    requested_mode=mode,  # type: ignore[arg-type]
-                    shipment_id=ship.id,
-                    persist_snapshot=True,
-                ),
+        new_landed = None
+        new_duties = None
+        new_snap = None
+        duty_delta = None
+        landed_delta = None
+        if uncertain:
+            summary = (
+                f"Tariff update · HS {new_tariff.hs_code} · BCD {old_tariff.rate}% → "
+                f"{new_tariff.rate}% · Case “{ship.title}” needs review "
+                f"(incomplete freight/insurance or unconfirmed HS) before asserting duty change."
             )
-        except AppError:
-            continue
+            action = (
+                "Review case inputs (confirm HS, freight, insurance) before treating "
+                "this tariff update as a definitive duty change."
+            )
+        else:
+            try:
+                breakdown = cost_service.calculate(
+                    session,
+                    LandedCostInput(
+                        hs_code=ship.hs_code_working,
+                        origin=ship.origin,
+                        destination=ship.destination,
+                        as_of=ship.as_of_date,
+                        invoice_value=ship.invoice_value,
+                        currency=ship.currency,
+                        incoterm=ship.incoterm,
+                        freight=ship.freight,
+                        insurance=ship.insurance,
+                        requested_mode=mode,  # type: ignore[arg-type]
+                        shipment_id=ship.id,
+                        persist_snapshot=True,
+                    ),
+                )
+            except AppError:
+                summary = (
+                    f"Tariff update · HS {new_tariff.hs_code} · BCD {old_tariff.rate}% → "
+                    f"{new_tariff.rate}% · Case “{ship.title}” could not be recalculated; "
+                    f"review manually."
+                )
+                action = "Review case — recalculation blocked; do not assert a duty delta."
+                uncertain = True
+            else:
+                new_snap = session.scalars(
+                    select(CalculationSnapshot)
+                    .where(CalculationSnapshot.shipment_id == ship.id)
+                    .order_by(CalculationSnapshot.created_at.desc())
+                ).first()
+                new_landed = breakdown.landed_cost
+                new_duties = breakdown.total_duties_taxes
+                duty_delta = (new_duties - old_duties) if old_duties is not None else None
+                landed_delta = (new_landed - old_landed) if old_landed is not None else None
+                rate_up = new_tariff.rate > old_tariff.rate
+                delta_txt = (
+                    f"duty {duty_delta:+} {ship.currency}"
+                    if duty_delta is not None
+                    else f"landed now {new_landed} {ship.currency}"
+                )
+                summary = (
+                    f"Tariff update · HS {new_tariff.hs_code} · BCD {old_tariff.rate}% → "
+                    f"{new_tariff.rate}% · Impact on “{ship.title}”: {delta_txt}"
+                )
+                action = _recommended_action(rate_up=rate_up)
 
-        new_snap = session.scalars(
-            select(CalculationSnapshot)
-            .where(CalculationSnapshot.shipment_id == ship.id)
-            .order_by(CalculationSnapshot.created_at.desc())
-        ).first()
-
-        new_landed = breakdown.landed_cost
-        new_duties = breakdown.total_duties_taxes
-        duty_delta = (new_duties - old_duties) if old_duties is not None else None
-        landed_delta = (new_landed - old_landed) if old_landed is not None else None
-        rate_up = new_tariff.rate > old_tariff.rate
-        delta_txt = (
-            f"duty {duty_delta:+} {ship.currency}"
-            if duty_delta is not None
-            else f"landed now {new_landed} {ship.currency}"
-        )
-        summary = (
-            f"Tariff update · HS {new_tariff.hs_code} · BCD {old_tariff.rate}% → "
-            f"{new_tariff.rate}% · Impact on “{ship.title}”: {delta_txt}"
-        )
-        action = _recommended_action(rate_up=rate_up)
         row = ScenarioImpact(
             shipment_id=ship.id,
             organization_id=ship.organization_id,
@@ -255,12 +342,13 @@ def record_impacts_for_new_tariff(
             session,
             scenario_id=ship.id,
             organization_id=ship.organization_id,
-            event_type="tariff_change",
+            event_type="tariff_change" if not uncertain else "tariff_review_needed",
             summary=summary,
             payload={
                 "old_rate": float(old_tariff.rate),
                 "new_rate": float(new_tariff.rate),
                 "duty_delta": float(duty_delta) if duty_delta is not None else None,
+                "uncertain": uncertain,
             },
             impact_id=row.id,
             tariff_rate_id=new_tariff.id,

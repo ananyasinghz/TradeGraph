@@ -49,14 +49,19 @@ python scripts/seed_trade_data.py --create-schema --force
 # Credible demo in 3 commands (after seed + API schema):
 #   python scripts/demo_promote_cbic.py
 #   # refresh UI → Verified source, approved rules, Customs mode unlocks with freight/insurance
-# Or use Admin → Sources → "Promote CBIC fixture to verified".
+# Or use Admin → Sources → Demo fixture lane → "Make demo fixture rates live".
 
 uvicorn backend.app.main:app --reload --port 8000
 ```
 
 Leave this running. Quick check: open http://127.0.0.1:8000/api/v1/health
 
-**Honesty:** curated CBIC JSON mirrors are not a live government API. `live_government_feed` is only true when `TRADE_LIVE_FEED_ENABLED=true` and a successful source fetch is within `TRADE_LIVE_FEED_MAX_AGE_HOURS` (optional scheduler: `TRADE_SOURCE_FETCH_SCHEDULER_ENABLED`).
+**Honesty — Admin Sources lanes:**
+
+- **Live / official:** always-seeded `cbic_ch61_igst_notif_9_2025` (Notification 9/2025 IGST PDF). Refresh fetches the remote document when allowlisted — not the curated Q3 JSON.
+- **Demo fixture:** `cbic_notification_2026_q3` local JSON only (collapsed panel). Never claim it is live CBIC.
+- Scheduler defaults to **Manual refresh only**. `live_government_feed` is only true when `TRADE_LIVE_FEED_ENABLED=true` and a successful live/official fetch is within `TRADE_LIVE_FEED_MAX_AGE_HOURS`.
+- Publishing requires an authenticated reviewer unless `TRADE_ALLOW_ANONYMOUS_PUBLISH=true` in local development.
 
 ### Terminal 2 — frontend
 
@@ -67,6 +72,34 @@ npm run dev
 ```
 
 Open the URL Vite prints (usually http://127.0.0.1:5173).
+
+### End-to-end tests (Playwright)
+
+From `frontend/` (starts an isolated API + Vite automatically):
+
+```powershell
+cd frontend
+npm install
+npx playwright install chromium
+npm run test:e2e:r0
+# all tagged rounds:
+npm run test:e2e
+```
+
+Checkpoint notes live under [`docs/ux-checkpoints/`](docs/ux-checkpoints/).
+
+### Authentication (Firebase)
+
+Default local demo keeps **`TRADE_AUTH_ENABLED=false`** so the API stays open for offline demos and CI.
+
+To require login (Email/Password + Google):
+
+1. Follow [`docs/FIREBASE_AUTH.md`](docs/FIREBASE_AUTH.md).
+2. Set backend `TRADE_AUTH_ENABLED=true` and `TRADE_FIREBASE_PROJECT_ID=...`.
+3. Set frontend `VITE_FIREBASE_*` values and restart Vite.
+4. Sign in from the login screen; the SPA sends `Authorization: Bearer <Firebase ID token>`.
+
+Security inventory: [`docs/SECURITY_AUDIT.md`](docs/SECURITY_AUDIT.md). Production (`TRADE_ENVIRONMENT=production`) forces auth on and rejects demo Bearer tokens.
 
 ### What to click first
 

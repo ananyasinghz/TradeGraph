@@ -8,15 +8,22 @@
     "build": "tsc -b",
     "build:bundle": "tsc -b && vite build",
     "lint": "oxlint",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "test:e2e": "playwright test",
+    "test:e2e:ui": "playwright test --ui",
+    "test:e2e:r0": "playwright test e2e/r0-smoke.spec.ts",
+    "test:e2e:r1": "playwright test e2e/r1-trust.spec.ts",
+    "test:e2e:happy": "playwright test e2e/happy-path.spec.ts"
   },
   "dependencies": {
     "@rolldown/binding-win32-x64-msvc": "^1.2.0",
+    "firebase": "^12.19.0",
     "lucide-react": "^1.26.0",
     "react": "^19.2.7",
     "react-dom": "^19.2.7"
   },
   "devDependencies": {
+    "@playwright/test": "^1.51.0",
     "@types/node": "^24.13.2",
     "@types/react": "^19.2.17",
     "@types/react-dom": "^19.2.3",

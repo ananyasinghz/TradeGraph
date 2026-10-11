@@ -70,9 +70,10 @@ def test_if9_india_duty_engine() -> None:
         sws_pct_of_bcd=Decimal("10"),
         igst_pct=Decimal("5"),
     )
-    assert [c.code for c in components] == ["BCD", "SWS", "IGST"]
+    assert [c.code for c in components] == ["BCD", "AIDC", "CHCESS", "SWS", "IGST", "CC"]
     assert components[0].amount == Decimal("100.00")
-    assert components[1].amount == Decimal("10.00")
+    sws = next(c for c in components if c.code == "SWS")
+    assert sws.amount == Decimal("10.00")
     assert total == Decimal("165.50")
     assert landed == Decimal("1165.50")
 

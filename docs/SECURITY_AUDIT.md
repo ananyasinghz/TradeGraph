@@ -53,9 +53,9 @@ TradeGraph was built as a local-first demo. Auth exists but is **off by default*
 | Phase | Outcome | Status |
 |-------|---------|--------|
 | 0 | This audit | Done |
-| 1 | Firebase config contract | In progress |
-| 2 | Firebase ID-token verify + user upsert | Pending |
-| 3 | RBAC lockdown + org + audit | Pending |
-| 4 | Login UI + Bearer | Pending |
-| 5 | Headers, CORS, rate limit, uploads | Pending |
-| 6 | Tests + docs | Pending |
+| 1 | Firebase config contract | Done |
+| 2 | Firebase ID-token verify + user upsert | Done |
+| 3 | RBAC lockdown + org + audit | Done |
+| 4 | Login UI + Bearer | Done |
+| 5 | Headers, CORS, rate limit, uploads | Done |
+| 6 | Tests + docs | Done |

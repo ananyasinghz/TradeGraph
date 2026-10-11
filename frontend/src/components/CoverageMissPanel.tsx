@@ -7,7 +7,7 @@ interface CoverageMissPanelProps {
 export function CoverageMissPanel({ miss }: CoverageMissPanelProps) {
   const coverage = miss.dataset_coverage || {};
   return (
-    <div className="coverage-miss" role="status">
+    <div className="coverage-miss" role="status" data-testid="coverage-miss">
       <h3>No approved coverage for this query</h3>
       <p>{miss.message}</p>
       <dl className="kv">

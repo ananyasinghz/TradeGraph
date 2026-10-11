@@ -25,11 +25,13 @@ from backend.app.data.models import (
 )
 from backend.app.domain.trade import (
     DataVersionOut,
+    IngestBatchDiffOut,
     IngestionBatchDetail,
     IngestionBatchOut,
     IngestionProposalOut,
     IngestRunRequest,
 )
+from backend.app.services import live_feed_normalize
 
 ROOT = Path(__file__).resolve().parents[3]
 DEFAULT_ARCHIVE = (
@@ -59,7 +61,10 @@ def _resolve_archive(source_key: str | None, archive_path: str | None) -> Path:
     elif source_key:
         path = ROOT / "config" / "trade" / "fixtures" / "cbic" / f"{source_key}.json"
         if not path.exists():
-            path = ROOT / "config" / "trade" / "sources" / f"{source_key}.json"
+            # Legacy fallback only — prefer fixtures path above.
+            legacy = ROOT / "config" / "trade" / "sources" / f"{source_key}.json"
+            if legacy.exists():
+                path = legacy
     else:
         path = DEFAULT_ARCHIVE
     if not path.exists():
@@ -228,6 +233,12 @@ def run_ingest(
             )
         )
 
+    fingerprint = None
+    try:
+        fingerprint = live_feed_normalize.semantic_fingerprint(raw)
+    except Exception:
+        fingerprint = None
+    live_meta = raw.get("_live_meta") if isinstance(raw.get("_live_meta"), dict) else {}
     batch.validation_summary = {
         "ok": ok_count,
         "error": err_count,
@@ -235,6 +246,10 @@ def run_ingest(
         "corridor_lock": f"{ALLOWED_ORIGIN}->{ALLOWED_DESTINATION}",
         "chapter_lock": ALLOWED_CHAPTER or "all",
         "notice_id": raw.get("notice_id"),
+        "semantic_fingerprint": fingerprint,
+        "parser_version": live_meta.get("parser_version"),
+        "document_type": live_meta.get("document_type") or raw.get("document_type"),
+        "warnings": list(live_meta.get("warnings") or []),
     }
     session.flush()
     session.refresh(batch)
@@ -358,9 +373,55 @@ def approve_batch(
             continue
         payload = dict(proposal.payload_json or {})
         if proposal.kind == "tariff_rate":
+            from backend.app.services import component_provenance as comp_prov
+
             hs_code = str(payload["hs_code"])
             origin = str(payload["origin"]).upper()
             destination = str(payload["destination"]).upper()
+            proposed_rate = Decimal(str(payload["rate"]))
+            proposed_components = dict(payload.get("duty_components") or {})
+            # Stamp IGST provenance source doc when missing
+            prov = proposed_components.get("_provenance")
+            if isinstance(prov, dict) and "igst_pct" in prov and isinstance(prov["igst_pct"], dict):
+                if not prov["igst_pct"].get("source_document_id"):
+                    prov["igst_pct"]["source_document_id"] = source_id
+            active_rows = session.scalars(
+                select(TariffRate).where(
+                    TariffRate.hs_code == hs_code,
+                    TariffRate.origin == origin,
+                    TariffRate.destination == destination,
+                    TariffRate.status == "active",
+                    TariffRate.regime == "mfn",
+                )
+            ).all()
+            existing_components = (
+                dict(active_rows[0].duty_components or {}) if active_rows else {}
+            )
+            merged_components = comp_prov.merge_duty_components(
+                existing_components,
+                proposed_components,
+                incoming_source_document_id=source_id,
+            )
+            partial = comp_prov.partial_keys(proposed_components)
+            # Keep primary BCD rate when ingest is IGST-only partial update.
+            if partial == {"igst_pct"} and active_rows:
+                published_rate = Decimal(str(active_rows[0].rate))
+            else:
+                published_rate = comp_prov.primary_bcd_rate(
+                    merged_components, fallback=float(proposed_rate)
+                )
+            data_quality = "source_verified"
+            if partial and existing_components:
+                # Mixed stack: verified IGST + curated BCD
+                data_quality = "source_verified"
+            if (
+                len(active_rows) == 1
+                and active_rows[0].rate == published_rate
+                and comp_prov.applicable_stack_signature(active_rows[0].duty_components)
+                == comp_prov.applicable_stack_signature(merged_components)
+            ):
+                proposal.publish_status = "skipped"
+                continue
             max_version = session.scalar(
                 select(func.max(TariffRate.version)).where(
                     TariffRate.hs_code == hs_code,
@@ -368,14 +429,6 @@ def approve_batch(
                     TariffRate.destination == destination,
                 )
             ) or 0
-            active_rows = session.scalars(
-                select(TariffRate).where(
-                    TariffRate.hs_code == hs_code,
-                    TariffRate.origin == origin,
-                    TariffRate.destination == destination,
-                    TariffRate.status == "active",
-                )
-            ).all()
             new_id = str(uuid4())
             for old in active_rows:
                 old.status = "superseded"
@@ -388,16 +441,16 @@ def approve_batch(
                     hs_code=hs_code,
                     origin=origin,
                     destination=destination,
-                    rate=Decimal(str(payload["rate"])),
+                    rate=published_rate,
                     rate_type=str(payload.get("rate_type") or "ad_valorem_pct"),
-                    duty_components=dict(payload.get("duty_components") or {}),
+                    duty_components=merged_components,
                     agreement_id=None,
                     effective_from=effective_from,
                     effective_to=None,
                     source_document_id=source_id,
                     version=int(max_version) + 1,
                     status="active",
-                    data_quality="source_verified",
+                    data_quality=data_quality,
                     superseded_by=None,
                     regime="mfn",
                     rule_label=f"{hs_code} MFN BD→IN",
@@ -429,6 +482,9 @@ def approve_batch(
         else:
             proposal.publish_status = "skipped"
 
+    semantic_fp = None
+    if isinstance(row.validation_summary, dict):
+        semantic_fp = row.validation_summary.get("semantic_fingerprint")
     version = DataVersion(
         id=str(uuid4()),
         label=f"ingest:{row.source_key}",
@@ -436,7 +492,11 @@ def approve_batch(
         notes=notes or f"Approved batch {row.id}",
         published_at=_utcnow(),
         batch_id=row.id,
-        record_counts={"tariff_rates": rates_published, "regulatory_chunks": chunks_published},
+        record_counts={
+            "tariff_rates": rates_published,
+            "regulatory_chunks": chunks_published,
+            "semantic_fingerprint": semantic_fp,
+        },
     )
     session.add(version)
     row.status = "approved"
@@ -445,11 +505,118 @@ def approve_batch(
     row.published_source_id = source_id
     row.data_version_id = version.id
     session.flush()
-    from backend.app.services import impact_service
 
-    impact_service.record_impacts_after_approve(session, published_rate_ids)
+    from backend.app.services import source_connection_service
+
+    source_connection_service.record_publication(
+        session, row.source_key, version.id, semantic_fp if isinstance(semantic_fp, str) else None
+    )
+
+    # Publication is durable even if impact processing fails — retryable separately.
+    impact_error = None
+    try:
+        from backend.app.services import impact_service
+
+        impact_service.record_impacts_after_approve(session, published_rate_ids)
+    except Exception as exc:  # noqa: BLE001 — must not roll back publication
+        impact_error = str(exc)[:500]
+        summary = dict(row.validation_summary or {})
+        summary["impact_error"] = impact_error
+        summary["impact_pending_retry"] = True
+        row.validation_summary = summary
     session.flush()
     return get_batch(session, batch_id)
+
+
+def batch_diff(session: Session, batch_id: str) -> IngestBatchDiffOut:
+    """Compare pending tariff proposals against currently active published rates."""
+    row = session.scalars(
+        select(IngestionBatch)
+        .options(joinedload(IngestionBatch.proposals))
+        .where(IngestionBatch.id == batch_id)
+    ).unique().first()
+    if row is None:
+        raise AppError(code="INGEST_BATCH_NOT_FOUND", message="Batch not found", status_code=404)
+
+    changes: list[dict[str, Any]] = []
+    quarantined: list[dict[str, Any]] = []
+    affected: list[str] = []
+
+    for proposal in row.proposals:
+        payload = dict(proposal.payload_json or {})
+        if proposal.kind != "tariff_rate":
+            continue
+        hs = str(payload.get("hs_code") or "")
+        if proposal.validation_status != "ok":
+            quarantined.append(
+                {
+                    "proposal_id": proposal.id,
+                    "hs_code": hs,
+                    "errors": list(proposal.validation_errors or []),
+                    "payload": payload,
+                }
+            )
+            continue
+        origin = str(payload.get("origin") or "").upper()
+        destination = str(payload.get("destination") or "").upper()
+        active = session.scalars(
+            select(TariffRate).where(
+                TariffRate.hs_code == hs,
+                TariffRate.origin == origin,
+                TariffRate.destination == destination,
+                TariffRate.status == "active",
+            )
+        ).first()
+        proposed_rate = payload.get("rate")
+        proposed_components = dict(payload.get("duty_components") or {})
+        change_type = "added"
+        previous = None
+        if active is not None:
+            previous = {
+                "rate": float(active.rate),
+                "rate_type": active.rate_type,
+                "duty_components": dict(active.duty_components or {}),
+                "effective_from": active.effective_from.isoformat()
+                if active.effective_from
+                else None,
+                "tariff_rate_id": active.id,
+            }
+            same_rate = Decimal(str(active.rate)) == Decimal(str(proposed_rate))
+            same_comp = dict(active.duty_components or {}) == proposed_components
+            change_type = "unchanged" if same_rate and same_comp else "changed"
+        if change_type != "unchanged":
+            affected.append(hs)
+        changes.append(
+            {
+                "proposal_id": proposal.id,
+                "hs_code": hs,
+                "origin": origin,
+                "destination": destination,
+                "change_type": change_type,
+                "previous": previous,
+                "proposed": {
+                    "rate": proposed_rate,
+                    "rate_type": payload.get("rate_type"),
+                    "duty_components": proposed_components,
+                    "notes": payload.get("notes"),
+                },
+                "effective_from": row.effective_from.isoformat() if row.effective_from else None,
+                "source_title": row.title,
+                "checksum": row.checksum,
+                "archive_path": row.archive_path,
+            }
+        )
+
+    return IngestBatchDiffOut(
+        batch_id=row.id,
+        source_key=row.source_key,
+        effective_from=row.effective_from,
+        checksum=row.checksum,
+        archive_path=row.archive_path,
+        changes=changes,
+        quarantined=quarantined,
+        affected_hs_codes=sorted(set(affected)),
+    )
 
 
 def list_data_versions(session: Session) -> list[DataVersionOut]:

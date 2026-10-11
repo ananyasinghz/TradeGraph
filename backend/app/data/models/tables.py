@@ -45,6 +45,7 @@ class Party(Base):
     __tablename__ = "parties"
 
     id: Mapped[str] = mapped_column(String(36), primary_key=True, default=_uuid)
+    organization_id: Mapped[str | None] = mapped_column(String(36), nullable=True, index=True)
     name: Mapped[str] = mapped_column(String(256))
     role: Mapped[str] = mapped_column(String(32), index=True)
     country: Mapped[str | None] = mapped_column(String(2), nullable=True)
@@ -197,7 +198,10 @@ class Shipment(Base):
     organization_id: Mapped[str | None] = mapped_column(String(36), nullable=True, index=True)
     assumptions_json: Mapped[dict[str, Any]] = mapped_column(JSON, default=dict)
     hs_confirmed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
-    status: Mapped[str] = mapped_column(String(32), default="draft")
+    status: Mapped[str] = mapped_column(String(32), default="open")
+    closed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    archived_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    assign_reviewer_user_id: Mapped[str | None] = mapped_column(String(36), nullable=True, index=True)
     exporter_party_id: Mapped[str | None] = mapped_column(
         String(36), ForeignKey("parties.id"), nullable=True
     )
@@ -217,6 +221,7 @@ class Shipment(Base):
     calculation_snapshots: Mapped[list[CalculationSnapshot]] = relationship(
         back_populates="shipment"
     )
+    comments: Mapped[list["CaseComment"]] = relationship(back_populates="shipment")
 
 
 class LineItem(Base):
@@ -410,6 +415,41 @@ class AgreementEligibility(Base):
     agreement: Mapped[TradeAgreement] = relationship(back_populates="eligibility_rules")
 
 
+class ExemptionRule(Base):
+    """Structured customs exemption / notification Sl. No. (not LLM-invented)."""
+
+    __tablename__ = "exemption_rules"
+    __table_args__ = (
+        UniqueConstraint(
+            "notification_id",
+            "serial_no",
+            "hs_match",
+            "origin",
+            "destination",
+            name="uq_exemption_notn_sl_hs_corridor",
+        ),
+    )
+
+    id: Mapped[str] = mapped_column(String(64), primary_key=True, default=_uuid)
+    notification_id: Mapped[str] = mapped_column(String(128), index=True)
+    notification_year: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    serial_no: Mapped[str] = mapped_column(String(32), index=True)
+    label: Mapped[str] = mapped_column(String(512))
+    hs_match: Mapped[str] = mapped_column(String(16), index=True)
+    origin: Mapped[str] = mapped_column(String(8), index=True)
+    destination: Mapped[str] = mapped_column(String(2), index=True, default="IN")
+    condition_code: Mapped[str] = mapped_column(String(64), default="none")
+    condition_detail: Mapped[str] = mapped_column(Text, default="")
+    effect_json: Mapped[dict[str, Any]] = mapped_column(JSON, default=dict)
+    source_document_id: Mapped[str | None] = mapped_column(
+        ForeignKey("source_documents.id"), nullable=True
+    )
+    effective_from: Mapped[date] = mapped_column(Date, index=True)
+    effective_to: Mapped[date | None] = mapped_column(Date, nullable=True)
+    status: Mapped[str] = mapped_column(String(32), default="active", index=True)
+    data_quality: Mapped[str] = mapped_column(String(32), default="illustrative")
+
+
 class RegulatoryChunk(Base):
     __tablename__ = "regulatory_chunks"
 
@@ -445,6 +485,9 @@ class Organization(Base):
     name: Mapped[str] = mapped_column(String(256))
     country: Mapped[str | None] = mapped_column(String(2), nullable=True)
     tax_identifier: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    mfa_required: Mapped[bool] = mapped_column(Boolean, default=False)
+    slack_webhook_url: Mapped[str | None] = mapped_column(String(1024), nullable=True)
+    settings_json: Mapped[dict[str, Any] | None] = mapped_column(JSON, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
 
 
@@ -461,8 +504,64 @@ class UserAccount(Base):
     name: Mapped[str] = mapped_column(String(256))
     role: Mapped[str] = mapped_column(String(32), default="viewer")
     idp_subject: Mapped[str | None] = mapped_column(String(256), nullable=True, index=True)
+    notification_prefs: Mapped[dict[str, Any] | None] = mapped_column(JSON, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
     last_login_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
+
+class UserInvite(Base):
+    __tablename__ = "user_invites"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=_uuid)
+    organization_id: Mapped[str] = mapped_column(String(36), index=True)
+    email: Mapped[str] = mapped_column(String(256), index=True)
+    role: Mapped[str] = mapped_column(String(32), default="viewer")
+    invited_by: Mapped[str | None] = mapped_column(String(128), nullable=True)
+    status: Mapped[str] = mapped_column(String(32), default="pending", index=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    accepted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
+
+class CaseComment(Base):
+    __tablename__ = "case_comments"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=_uuid)
+    shipment_id: Mapped[str] = mapped_column(ForeignKey("shipments.id"), index=True)
+    organization_id: Mapped[str | None] = mapped_column(String(36), nullable=True, index=True)
+    author_user_id: Mapped[str | None] = mapped_column(String(36), nullable=True)
+    author_actor: Mapped[str] = mapped_column(String(128), default="anonymous")
+    body: Mapped[str] = mapped_column(Text)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), index=True)
+
+    shipment: Mapped[Shipment] = relationship(back_populates="comments")
+
+
+class ProductTemplate(Base):
+    __tablename__ = "product_templates"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=_uuid)
+    organization_id: Mapped[str] = mapped_column(String(36), index=True)
+    name: Mapped[str] = mapped_column(String(256))
+    product_text: Mapped[str] = mapped_column(Text)
+    hs_code: Mapped[str | None] = mapped_column(String(16), nullable=True)
+    origin: Mapped[str | None] = mapped_column(String(2), nullable=True)
+    destination: Mapped[str | None] = mapped_column(String(2), nullable=True)
+    notes: Mapped[str | None] = mapped_column(Text, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+
+
+class ShareLink(Base):
+    __tablename__ = "share_links"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=_uuid)
+    token: Mapped[str] = mapped_column(String(64), unique=True, index=True)
+    shipment_id: Mapped[str] = mapped_column(ForeignKey("shipments.id"), index=True)
+    organization_id: Mapped[str | None] = mapped_column(String(36), nullable=True, index=True)
+    created_by: Mapped[str | None] = mapped_column(String(128), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    expires_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    revoked_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
 
 class DataVersion(Base):
@@ -535,6 +634,8 @@ class Notification(Base):
     body: Mapped[str] = mapped_column(Text)
     watchlist_item_id: Mapped[str | None] = mapped_column(String(36), nullable=True)
     shipment_id: Mapped[str | None] = mapped_column(String(36), nullable=True, index=True)
+    user_id: Mapped[str | None] = mapped_column(String(36), nullable=True, index=True)
+    organization_id: Mapped[str | None] = mapped_column(String(36), nullable=True, index=True)
     is_read: Mapped[bool] = mapped_column(Boolean, default=False)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), index=True)
 
@@ -614,6 +715,7 @@ class Corridor(Base):
     origin_country: Mapped[str] = mapped_column(String(2), index=True)
     destination_country: Mapped[str] = mapped_column(String(2), index=True)
     status: Mapped[str] = mapped_column(String(32), default="demonstration", index=True)
+    operational: Mapped[bool] = mapped_column(Boolean, default=False)
     supported_hs_chapters: Mapped[list[Any]] = mapped_column(JSON, default=list)
     supported_regimes: Mapped[list[Any]] = mapped_column(JSON, default=list)
     tariff_source_codes: Mapped[list[Any]] = mapped_column(JSON, default=list)

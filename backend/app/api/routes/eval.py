@@ -6,6 +6,7 @@ from typing import Annotated, Any, Literal, cast
 
 from fastapi import APIRouter, Query
 
+from backend.app.api.auth_deps import AdminDep
 from backend.app.api.dependencies import SessionDep
 from backend.app.domain.trade import BenchmarkRunResult
 from backend.app.evaluation.benchmark import run_benchmark
@@ -18,6 +19,7 @@ router = APIRouter(prefix="/eval", tags=["evaluation"])
 @router.post("/run", response_model=BenchmarkRunResult)
 def eval_run(
     session: SessionDep,
+    _principal: AdminDep,
     modes: Annotated[
         list[Literal["adaptive", "direct_lookup", "fixed_multi", "always_llm"]] | None,
         Query(),
@@ -30,5 +32,5 @@ def eval_run(
 
 
 @router.post("/hs-classify")
-def eval_hs_classify(session: SessionDep) -> dict[str, Any]:
+def eval_hs_classify(session: SessionDep, _principal: AdminDep) -> dict[str, Any]:
     return evaluate_hs_classify(session)

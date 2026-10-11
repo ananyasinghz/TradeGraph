@@ -1,19 +1,21 @@
-import type { FC } from 'react';
+import { useState, type FC } from 'react';
 import {
   Bell,
   BookOpen,
   Calculator,
+  ChevronDown,
   FileText,
   FlaskConical,
   Handshake,
   LayoutDashboard,
   MessageSquare,
   Package,
+  Scale,
   Settings,
+  SlidersHorizontal,
   Table2,
 } from 'lucide-react';
 import { InfoTip } from './InfoTip';
-import type { HelpKey } from '../content/helpCopy';
 import { OPERATOR } from '../content/operatorCopy';
 
 export type TradeView =
@@ -27,34 +29,50 @@ export type TradeView =
   | 'ask'
   | 'glossary'
   | 'admin'
-  | 'research';
+  | 'research'
+  | 'settings'
+  | 'legal';
 
 interface SidebarProps {
   currentView: TradeView;
   onViewChange: (view: TradeView) => void;
   showResearchLab?: boolean;
+  showAdmin?: boolean;
+  sessionLabel?: string;
+  orgLabel?: string | null;
+  notificationCount?: number;
+  onOpenNotifications?: () => void;
+  onLogout?: () => void;
 }
 
-const PRIMARY: { id: TradeView; label: string; tip: HelpKey; icon: typeof LayoutDashboard }[] = [
-  { id: 'dashboard', label: OPERATOR.nav.home, tip: 'nav_dashboard', icon: LayoutDashboard },
-  { id: 'shipments', label: OPERATOR.nav.cases, tip: 'nav_shipments', icon: Package },
-  { id: 'tariffs', label: OPERATOR.nav.duty, tip: 'nav_tariffs', icon: Table2 },
-  { id: 'calculator', label: OPERATOR.nav.landed, tip: 'nav_calculator', icon: Calculator },
-  { id: 'agreements', label: OPERATOR.nav.fta, tip: 'nav_agreements', icon: Handshake },
-  { id: 'documents', label: OPERATOR.nav.papers, tip: 'nav_documents', icon: FileText },
-  { id: 'watchlist', label: OPERATOR.nav.alerts, tip: 'nav_watchlist', icon: Bell },
-  { id: 'ask', label: OPERATOR.nav.ask, tip: 'nav_ask', icon: MessageSquare },
-  { id: 'glossary', label: OPERATOR.nav.glossary, tip: 'nav_glossary', icon: BookOpen },
+type NavItem = { id: TradeView; label: string; icon: typeof LayoutDashboard };
+
+const PRIMARY: NavItem[] = [
+  { id: 'dashboard', label: OPERATOR.nav.home, icon: LayoutDashboard },
+  { id: 'shipments', label: OPERATOR.nav.cases, icon: Package },
+  { id: 'tariffs', label: OPERATOR.nav.duty, icon: Table2 },
+  { id: 'calculator', label: OPERATOR.nav.landed, icon: Calculator },
+  { id: 'agreements', label: OPERATOR.nav.fta, icon: Handshake },
+  { id: 'documents', label: OPERATOR.nav.papers, icon: FileText },
+  { id: 'watchlist', label: OPERATOR.nav.alerts, icon: Bell },
+  { id: 'ask', label: OPERATOR.nav.ask, icon: MessageSquare },
 ];
 
-const ADMIN_BASE: { id: TradeView; label: string; tip: HelpKey; icon: typeof LayoutDashboard }[] = [
-  { id: 'admin', label: OPERATOR.nav.admin, tip: 'nav_sources', icon: Settings },
+const MORE: NavItem[] = [
+  { id: 'glossary', label: OPERATOR.nav.glossary, icon: BookOpen },
+  { id: 'settings', label: OPERATOR.navSettings, icon: SlidersHorizontal },
+  { id: 'legal', label: OPERATOR.navLegal, icon: Scale },
 ];
 
-const RESEARCH_ITEM = {
-  id: 'research' as TradeView,
+const ADMIN_ITEM: NavItem = {
+  id: 'admin',
+  label: OPERATOR.nav.admin,
+  icon: Settings,
+};
+
+const RESEARCH_ITEM: NavItem = {
+  id: 'research',
   label: OPERATOR.nav.research,
-  tip: 'nav_research' as HelpKey,
   icon: FlaskConical,
 };
 
@@ -62,30 +80,33 @@ export const Sidebar: FC<SidebarProps> = ({
   currentView,
   onViewChange,
   showResearchLab = false,
+  showAdmin = false,
+  sessionLabel,
+  orgLabel,
+  notificationCount = 0,
+  onOpenNotifications,
+  onLogout,
 }) => {
-  const adminItems = showResearchLab ? [...ADMIN_BASE, RESEARCH_ITEM] : ADMIN_BASE;
+  const moreActive = MORE.some((i) => i.id === currentView);
+  const [moreOpen, setMoreOpen] = useState(moreActive);
 
-  const renderNav = (items: typeof PRIMARY) =>
-    items.map(({ id, label, tip, icon: Icon }) => (
+  const adminItems = [
+    ...(showAdmin ? [ADMIN_ITEM] : []),
+    ...(showAdmin && showResearchLab ? [RESEARCH_ITEM] : []),
+  ];
+
+  const renderNav = (items: NavItem[]) =>
+    items.map(({ id, label, icon: Icon }) => (
       <button
         key={id}
         type="button"
+        data-testid={`nav-${id}`}
         onClick={() => onViewChange(id)}
-        className={`nav-item ${currentView === id ? 'active' : ''}`}
-        style={{
-          background: 'none',
-          border: 'none',
-          width: '100%',
-          cursor: 'pointer',
-          textAlign: 'left',
-        }}
+        className={`nav-item nav-item-btn ${currentView === id ? 'active' : ''}`}
       >
         <span className="nav-item-label">
-          <Icon size={14} />
-          <span className="nav-item-text">
-            {label}
-            <InfoTip id={tip} />
-          </span>
+          <Icon size={15} />
+          <span className="nav-item-text">{label}</span>
         </span>
       </button>
     ));
@@ -93,18 +114,66 @@ export const Sidebar: FC<SidebarProps> = ({
   return (
     <aside className="sidebar">
       <div className="sidebar-header">
-        TRADEGRAPH
+        <div className="brand-lockup">
+          <span className="brand-mark" aria-hidden="true" />
+          <span className="brand-word">TradeGraph</span>
+        </div>
         <InfoTip id="corridor_scope" />
       </div>
+      {orgLabel ? (
+        <div className="sidebar-org" data-testid="org-label">
+          {orgLabel}
+        </div>
+      ) : null}
       <nav className="sidebar-nav">
         {renderNav(PRIMARY)}
-        <div className="nav-section-label">{OPERATOR.nav.adminSection}</div>
-        {renderNav(adminItems)}
+        <div className="nav-more">
+          <button
+            type="button"
+            className={`nav-more-toggle${moreOpen || moreActive ? ' open' : ''}`}
+            aria-expanded={moreOpen || moreActive}
+            onClick={() => setMoreOpen((v) => !v)}
+            data-testid="nav-more-toggle"
+          >
+            More
+            <ChevronDown size={14} />
+          </button>
+          {(moreOpen || moreActive) && (
+            <div className="nav-more-items" data-testid="nav-more-items">
+              {renderNav(MORE)}
+            </div>
+          )}
+        </div>
+        {adminItems.length > 0 ? (
+          <>
+            <div className="nav-section-label">{OPERATOR.nav.adminSection}</div>
+            {renderNav(adminItems)}
+          </>
+        ) : null}
       </nav>
       <div className="sidebar-footer">
-        <small>
-          BD→IN · knitwear <InfoTip id="corridor_scope" />
-        </small>
+        {onOpenNotifications ? (
+          <button
+            type="button"
+            className="sidebar-notifications"
+            data-testid="notifications-toggle"
+            onClick={onOpenNotifications}
+          >
+            Notifications
+            {notificationCount > 0 ? (
+              <span className="notif-badge" data-testid="notif-badge">
+                {notificationCount}
+              </span>
+            ) : null}
+          </button>
+        ) : null}
+        {sessionLabel ? <small className="sidebar-session">{sessionLabel}</small> : null}
+        {onLogout ? (
+          <button type="button" className="sidebar-logout" onClick={onLogout}>
+            Log out
+          </button>
+        ) : null}
+        <small className="sidebar-corridor">BD→IN · knitwear</small>
       </div>
     </aside>
   );

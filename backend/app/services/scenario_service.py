@@ -77,18 +77,7 @@ def get_workspace(session: Session, scenario_id: str) -> ShipmentWorkspaceOut:
 def confirm_hs(
     session: Session, scenario_id: str, payload: ClassificationConfirmRequest
 ) -> ShipmentOut:
-    out = classification_service.confirm_classification(session, scenario_id, payload)
-    from backend.app.services import timeline_service
-
-    timeline_service.record_event(
-        session,
-        scenario_id=scenario_id,
-        organization_id=out.organization_id,
-        event_type="hs_change",
-        summary=f"HS confirmed as {payload.hs_code}",
-        payload={"hs_code": payload.hs_code},
-    )
-    return out
+    return classification_service.confirm_classification(session, scenario_id, payload)
 
 
 def calculate(

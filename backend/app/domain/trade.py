@@ -119,6 +119,7 @@ class LandedCostInput(ContractModel):
     requested_mode: Literal["estimate", "customs"] | None = None
     shipment_id: str | None = None
     persist_snapshot: bool = True
+    selected_exemption_id: str | None = None
 
 
 class CustomsModeAvailability(ContractModel):
@@ -130,17 +131,130 @@ class CustomsModeAvailability(ContractModel):
     approved_tariff_rule_count: int = 0
 
 
+class DutyStackLine(ContractModel):
+    code: str
+    display_name: str
+    tariff_rate_pct: Decimal
+    effective_rate_pct: Decimal
+    amount: Decimal
+    notification_sl: str | None = None
+    component_key: str | None = None
+    data_quality: str | None = None
+    source_key: str | None = None
+    source_document_id: str | None = None
+    provenance_notes: str | None = None
+
+
+class ComponentProvenanceOut(ContractModel):
+    component_key: str
+    value: Decimal | None = None
+    data_quality: str = "missing"
+    source_key: str | None = None
+    source_document_id: str | None = None
+    effective_from: date | None = None
+    notes: str | None = None
+
+
+class ExemptionRuleOut(ContractModel):
+    id: str
+    notification_id: str
+    notification_year: int | None = None
+    serial_no: str
+    label: str
+    hs_match: str
+    origin: str
+    destination: str = "IN"
+    condition_code: str
+    condition_detail: str
+    effect: dict[str, Any] = Field(default_factory=dict)
+    source_document_id: str | None = None
+    eligibility: Literal["eligible_now", "eligible_if_coo", "not_eligible"] = "eligible_now"
+    eligibility_reason: str = ""
+
+
+class DutyStructureOut(ContractModel):
+    hs_code: str
+    origin: str
+    destination: str
+    as_of: date
+    assessable_value: Decimal
+    currency: str
+    tariff_rate_id: str | None = None
+    data_quality: str = "illustrative"
+    stack: list[DutyStackLine] = Field(default_factory=list)
+    component_sources: list[ComponentProvenanceOut] = Field(default_factory=list)
+    coverage: dict[str, str] = Field(default_factory=dict)
+    total_duties: Decimal
+    landed_cost: Decimal
+    mfn_total_duties: Decimal
+    duty_savings: Decimal = Decimal("0")
+    selected_exemption_id: str | None = None
+    selected_exemption_label: str | None = None
+    exemptions: list[ExemptionRuleOut] = Field(default_factory=list)
+    preferential_status: str | None = None
+    preferential_blocked_reason: str | None = None
+    honesty_note: str = (
+        "Component-sourced duty structure for BD→IN. BCD/SWS/IGST carry separate provenance; "
+        "IGST notifications never invent BCD. Not a substitute for ICEGATE / official CBIC."
+    )
+
+
+class TariffCoverageChapterOut(ContractModel):
+    chapter: str
+    classification_codes: int = 0
+    bcd_rates: int = 0
+    sws_rates: int = 0
+    igst_rates: int = 0
+    exemption_rules: int = 0
+    preferential_rules: int = 0
+    # Per-component status — never confuse numeric 0% with missing data.
+    bcd_status: Literal["verified", "curated", "missing", "needs_review", "illustrative"] = (
+        "missing"
+    )
+    sws_status: Literal["verified", "curated", "missing", "needs_review", "illustrative"] = (
+        "missing"
+    )
+    igst_status: Literal["verified", "curated", "missing", "needs_review", "illustrative"] = (
+        "missing"
+    )
+    classification_status: Literal[
+        "verified", "curated", "missing", "needs_review", "illustrative"
+    ] = "missing"
+    exemption_status: Literal[
+        "verified", "curated", "missing", "needs_review", "illustrative"
+    ] = "missing"
+    preferential_status: Literal[
+        "verified", "curated", "missing", "needs_review", "illustrative"
+    ] = "missing"
+
+
+class TariffCoverageOut(ContractModel):
+    origin: str = "BD"
+    destination: str = "IN"
+    chapters: list[TariffCoverageChapterOut] = Field(default_factory=list)
+    honesty_note: str = (
+        "Coverage counts are operational inventory, not a claim of complete First Schedule. "
+        "Status 'missing' means no sourced component — not a 0% rate."
+    )
+
+
 class LandedCostBreakdown(ContractModel):
     assessable_value: Decimal
     bcd: Decimal
     sws: Decimal
     igst: Decimal
+    aidc: Decimal = Decimal("0")
+    health_cess: Decimal = Decimal("0")
+    compensation_cess: Decimal = Decimal("0")
     total_duties_taxes: Decimal
     landed_cost: Decimal
     currency: str
     bcd_rate_pct: Decimal
     sws_pct_of_bcd: Decimal
     igst_rate_pct: Decimal
+    aidc_rate_pct: Decimal = Decimal("0")
+    health_cess_rate_pct: Decimal = Decimal("0")
+    compensation_cess_rate_pct: Decimal = Decimal("0")
     tariff_rate_id: str
     data_quality: str
     source_document_id: str
@@ -154,6 +268,15 @@ class LandedCostBreakdown(ContractModel):
     assumptions: list[str] = Field(default_factory=list)
     customs_mode_available: bool | None = None
     customs_mode_blockers: list[str] = Field(default_factory=list)
+    duty_stack: list[DutyStackLine] = Field(default_factory=list)
+    exemption_rule_id: str | None = None
+    exemption_label: str | None = None
+    mfn_total_duties: Decimal | None = None
+    duty_savings: Decimal | None = None
+    honesty_note: str = (
+        "Illustrative duty stack for demo — not a complete ICEGATE determination. "
+        "Verify BCD/AIDC/cess/exemption Sl. Nos. against official notifications."
+    )
 
 
 DocStatus = Literal["not_started", "draft", "needs_review", "ready"]
@@ -228,6 +351,7 @@ class DocWhyRequiredOut(ContractModel):
 
 class PartyOut(ContractModel):
     id: str
+    organization_id: str | None = None
     name: str
     role: str
     country: str | None = None
@@ -240,6 +364,15 @@ class PartyOut(ContractModel):
 class PartyCreate(ContractModel):
     name: str = Field(min_length=1, max_length=256)
     role: Literal["exporter", "importer", "consignee", "manufacturer", "other"] = "exporter"
+    country: str | None = Field(default=None, min_length=2, max_length=2)
+    address_text: str | None = None
+    tax_id: str | None = None
+    notes: str | None = None
+
+
+class PartyUpdate(ContractModel):
+    name: str | None = Field(default=None, min_length=1, max_length=256)
+    role: Literal["exporter", "importer", "consignee", "manufacturer", "other"] | None = None
     country: str | None = Field(default=None, min_length=2, max_length=2)
     address_text: str | None = None
     tax_id: str | None = None
@@ -266,6 +399,17 @@ class LineItemCreate(ContractModel):
     qty: Decimal = Field(default=Decimal("1"), gt=0)
     unit_value: Decimal | None = Field(default=None, ge=0)
     currency: str = Field(default="USD", min_length=3, max_length=3)
+    origin: str | None = Field(default=None, min_length=2, max_length=2)
+    notes: str | None = None
+
+
+class LineItemUpdate(ContractModel):
+    description: str | None = Field(default=None, min_length=1)
+    line_number: int | None = Field(default=None, ge=1)
+    hs_code: str | None = None
+    qty: Decimal | None = Field(default=None, gt=0)
+    unit_value: Decimal | None = Field(default=None, ge=0)
+    currency: str | None = Field(default=None, min_length=3, max_length=3)
     origin: str | None = Field(default=None, min_length=2, max_length=2)
     notes: str | None = None
 
@@ -314,6 +458,8 @@ class ClassificationCandidatesOut(ContractModel):
 
 class ClassificationConfirmRequest(ContractModel):
     hs_code: str = Field(min_length=4, max_length=16)
+    override_hs: str | None = Field(default=None, min_length=4, max_length=16)
+    reason: str | None = Field(default=None, max_length=2000)
 
 
 class ClassificationSuggestRequest(ContractModel):
@@ -373,6 +519,9 @@ class ScenarioImpactOut(ContractModel):
     acknowledged_at: datetime | None = None
     acknowledged_by: str | None = None
     dedupe_key: str | None = None
+    old_stack_signature: str | None = None
+    new_stack_signature: str | None = None
+    component_deltas: dict[str, Any] = Field(default_factory=dict)
 
 
 class ScenarioTimelineEventOut(ContractModel):
@@ -396,6 +545,7 @@ class ShipmentCalculateRequest(ContractModel):
     requested_mode: Literal["estimate", "customs"] | None = None
     freight: Decimal | None = Field(default=None, ge=0)
     insurance: Decimal | None = Field(default=None, ge=0)
+    selected_exemption_id: str | None = None
 
 
 class ShipmentCreate(ContractModel):
@@ -461,6 +611,10 @@ class ShipmentOut(ContractModel):
     assumptions: dict[str, Any] = Field(default_factory=dict)
     hs_confirmed_at: datetime | None = None
     status: str
+    closed_at: datetime | None = None
+    archived_at: datetime | None = None
+    assign_reviewer_user_id: str | None = None
+    lifecycle: Literal["open", "closed", "discarded"] = "open"
     exporter_party_id: str | None = None
     importer_party_id: str | None = None
     consignee_party_id: str | None = None
@@ -520,7 +674,26 @@ class AskResponse(ContractModel):
     ] = "estimated"
     assumptions: list[str] = Field(default_factory=list)
     next_action: str = ""
+    next_action_code: (
+        Literal["upload_coo", "confirm_hs", "add_freight", "open_fta", "none"] | None
+    ) = None
     source_status: str = "illustrative"
+
+
+class AskHistoryItemOut(ContractModel):
+    ask_run_id: str
+    shipment_id: str | None = None
+    query: str
+    route: str
+    answer: str | None = None
+    decision: str | None = None
+    next_action: str | None = None
+    next_action_code: (
+        Literal["upload_coo", "confirm_hs", "add_freight", "open_fta", "none"] | None
+    ) = None
+    tools_invoked: list[str] = Field(default_factory=list)
+    latency_ms: int = 0
+    created_at: datetime
 
 
 class TradeAgreementOut(ContractModel):
@@ -616,6 +789,7 @@ class ReadinessOut(ContractModel):
     human_review_required: bool = False
     factors: list[ReadinessFactor] = Field(default_factory=list)
     missing: list[str] = Field(default_factory=list)
+    blocked_reasons: list[str] = Field(default_factory=list)
     statuses: list[ReadinessStatusChip] = Field(default_factory=list)
     complete_items: list[ReadinessEvidenceItem] = Field(default_factory=list)
     missing_items: list[ReadinessEvidenceItem] = Field(default_factory=list)
@@ -626,11 +800,149 @@ class ReadinessOut(ContractModel):
 class AuthWhoAmI(ContractModel):
     authenticated: bool
     auth_enabled: bool
+    allow_anonymous_publish: bool = False
     actor: str
     role: Literal["viewer", "operator", "reviewer", "admin"]
     email: str | None = None
     organization_id: str | None = None
     auth_method: str | None = None
+    user_id: str | None = None
+    display_name: str | None = None
+    notification_prefs: dict[str, Any] = Field(default_factory=dict)
+    mfa_required: bool = False
+
+
+class AuthMeUpdate(ContractModel):
+    display_name: str | None = Field(default=None, min_length=1, max_length=256)
+    notification_prefs: dict[str, Any] | None = None
+
+
+class AdminUserOut(ContractModel):
+    id: str
+    email: str
+    name: str
+    role: str
+    organization_id: str
+    organization_name: str | None = None
+    created_at: datetime
+
+
+class AdminUserRoleUpdate(ContractModel):
+    role: Literal["viewer", "operator", "reviewer", "admin"]
+
+
+class UserInviteCreate(ContractModel):
+    email: str = Field(min_length=3, max_length=256)
+    role: Literal["viewer", "operator", "reviewer", "admin"] = "viewer"
+
+
+class UserInviteOut(ContractModel):
+    id: str
+    organization_id: str
+    email: str
+    role: str
+    invited_by: str | None = None
+    status: str
+    created_at: datetime
+    accepted_at: datetime | None = None
+
+
+class CaseCommentCreate(ContractModel):
+    body: str = Field(min_length=1, max_length=8000)
+
+
+class CaseCommentOut(ContractModel):
+    id: str
+    shipment_id: str
+    organization_id: str | None = None
+    author_user_id: str | None = None
+    author_actor: str
+    body: str
+    created_at: datetime
+
+
+class AssignReviewerRequest(ContractModel):
+    assign_reviewer_user_id: str | None = None
+
+
+class ProductTemplateCreate(ContractModel):
+    name: str = Field(min_length=1, max_length=256)
+    product_text: str = Field(min_length=1)
+    hs_code: str | None = None
+    origin: str | None = Field(default=None, min_length=2, max_length=2)
+    destination: str | None = Field(default=None, min_length=2, max_length=2)
+    notes: str | None = None
+
+
+class ProductTemplateUpdate(ContractModel):
+    name: str | None = Field(default=None, min_length=1, max_length=256)
+    product_text: str | None = Field(default=None, min_length=1)
+    hs_code: str | None = None
+    origin: str | None = Field(default=None, min_length=2, max_length=2)
+    destination: str | None = Field(default=None, min_length=2, max_length=2)
+    notes: str | None = None
+
+
+class ProductTemplateOut(ContractModel):
+    id: str
+    organization_id: str
+    name: str
+    product_text: str
+    hs_code: str | None = None
+    origin: str | None = None
+    destination: str | None = None
+    notes: str | None = None
+    created_at: datetime
+    updated_at: datetime
+
+
+class ShareLinkOut(ContractModel):
+    id: str
+    token: str
+    shipment_id: str
+    organization_id: str | None = None
+    created_by: str | None = None
+    created_at: datetime
+    expires_at: datetime | None = None
+    share_path: str
+
+
+class PublicShareOut(ContractModel):
+    shipment_id: str
+    title: str
+    readiness: ReadinessOut
+    papers: list[ChecklistItemOut] = Field(default_factory=list)
+
+
+class FtaCompareOut(ContractModel):
+    shipment_id: str
+    without_preferential: CalculationSnapshotOut
+    with_preferential: CalculationSnapshotOut
+    diff: SnapshotDiffOut
+    preferential_rate_pct: Decimal | None = None
+    preferential_applied: bool = False
+    preferential_status: str | None = None
+    preferential_blocked_reason: str | None = None
+    agreement_id: str | None = None
+    agreement_name: str | None = None
+    honesty_note: str = (
+        "Preferential BCD applies only when FTA status is eligible (including CoO evidence). "
+        "Illustrative until verified against official SAFTA / CBIC instruments."
+    )
+
+
+class SearchHitOut(ContractModel):
+    kind: Literal["shipment", "hs", "document"]
+    id: str
+    title: str
+    snippet: str | None = None
+    shipment_id: str | None = None
+    hs_code: str | None = None
+
+
+class SearchOut(ContractModel):
+    query: str
+    results: list[SearchHitOut] = Field(default_factory=list)
 
 
 class AuditLogOut(ContractModel):
@@ -652,6 +964,8 @@ class NotificationOut(ContractModel):
     body: str
     watchlist_item_id: str | None = None
     shipment_id: str | None = None
+    user_id: str | None = None
+    organization_id: str | None = None
     is_read: bool
     created_at: datetime
 
@@ -828,6 +1142,8 @@ class DashboardShipmentCard(ContractModel):
     status: str
     as_of_date: date
     chips: list[str] = Field(default_factory=list)
+    blocked_reasons: list[str] = Field(default_factory=list)
+    readiness_band: Literal["blocked", "partial", "ready"] | None = None
     updated_at: datetime
 
 
@@ -975,6 +1291,7 @@ class SourceConnectionOut(ContractModel):
     publisher: str
     fetch_mode: str
     source_url: str | None = None
+    document_url: str | None = None
     local_path: str | None = None
     enabled: bool
     origin: str
@@ -990,6 +1307,20 @@ class SourceConnectionOut(ContractModel):
     last_archive_path: str | None = None
     last_source_document_id: str | None = None
     created_at: datetime
+    pipeline_stage: str | None = None
+    last_final_url: str | None = None
+    last_content_type: str | None = None
+    last_http_status: int | None = None
+    last_semantic_fingerprint: str | None = None
+    last_ingest_batch_id: str | None = None
+    last_published_version_id: str | None = None
+    last_published_at: datetime | None = None
+    next_attempt_at: datetime | None = None
+    refresh_mode: Literal["manual_only", "scheduled"] = "manual_only"
+    fetch_overdue: bool = False
+    freshness_sla_hours: int | None = None
+    published_rates_usable: bool = True
+    lane: Literal["live_official", "demo_fixture", "local_archive", "other"] = "other"
 
 
 class SourceFetchResult(ContractModel):
@@ -1000,6 +1331,8 @@ class SourceFetchResult(ContractModel):
     resolved_from: str
     ingest_batch_id: str | None = None
     message: str
+    outcome: str | None = None
+    semantic_fingerprint: str | None = None
 
 
 class SourceFeedStatusOut(ContractModel):
@@ -1014,8 +1347,46 @@ class SourceFeedStatusOut(ContractModel):
     live_feed_enabled_setting: bool
     live_feed_reason: str
     last_successful_fetch_at: datetime | None = None
+    last_attempt_at: datetime | None = None
+    scheduler_enabled: bool = False
+    refresh_mode: Literal["manual_only", "scheduled"] = "manual_only"
     scheduler_interval_minutes: int
     has_live_adapter: bool = False
+    next_attempt_at: datetime | None = None
+    fetch_overdue: bool = False
+    published_rates_usable: bool = True
+    last_error: str | None = None
+
+
+class SourcePipelineStatusOut(ContractModel):
+    key: str
+    stage: str
+    last_attempt_at: datetime | None = None
+    last_success_at: datetime | None = None
+    last_error: str | None = None
+    last_checksum: str | None = None
+    last_archive_path: str | None = None
+    final_url: str | None = None
+    content_type: str | None = None
+    http_status: int | None = None
+    semantic_fingerprint: str | None = None
+    ingest_batch_id: str | None = None
+    published_version_id: str | None = None
+    published_at: datetime | None = None
+    next_attempt_at: datetime | None = None
+    parser_version: str | None = None
+    outcome: str | None = None
+
+
+class IngestBatchDiffOut(ContractModel):
+    batch_id: str
+    source_key: str
+    effective_from: date | None = None
+    checksum: str
+    archive_path: str
+    changes: list[dict[str, Any]] = Field(default_factory=list)
+    quarantined: list[dict[str, Any]] = Field(default_factory=list)
+    affected_hs_codes: list[str] = Field(default_factory=list)
 
 
 class PromoteCbicResult(ContractModel):
@@ -1034,6 +1405,8 @@ class OrganizationOut(ContractModel):
     name: str
     country: str | None = None
     tax_identifier: str | None = None
+    mfa_required: bool = False
+    slack_webhook_url: str | None = None
     created_at: datetime
 
 
@@ -1044,6 +1417,7 @@ class UserAccountOut(ContractModel):
     name: str
     role: str
     idp_subject: str | None = None
+    notification_prefs: dict[str, Any] = Field(default_factory=dict)
     created_at: datetime
 
 
@@ -1058,6 +1432,7 @@ class CorridorOut(ContractModel):
     origin_country: str
     destination_country: str
     status: str
+    operational: bool = False
     supported_hs_chapters: list[str] = Field(default_factory=list)
     supported_regimes: list[str] = Field(default_factory=list)
     tariff_source_codes: list[str] = Field(default_factory=list)

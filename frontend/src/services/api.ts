@@ -132,6 +132,95 @@ export interface LandedCostInput {
   freight?: number | string | null;
   insurance?: number | string | null;
   requested_mode?: 'estimate' | 'customs' | null;
+  selected_exemption_id?: string | null;
+}
+
+export interface DutyStackLine {
+  code: string;
+  display_name: string;
+  tariff_rate_pct: string | number;
+  effective_rate_pct: string | number;
+  amount: string | number;
+  notification_sl?: string | null;
+  component_key?: string | null;
+  data_quality?: string | null;
+  source_key?: string | null;
+  source_document_id?: string | null;
+  provenance_notes?: string | null;
+}
+
+export interface ComponentProvenance {
+  component_key: string;
+  value?: string | number | null;
+  data_quality: string;
+  source_key?: string | null;
+  source_document_id?: string | null;
+  effective_from?: string | null;
+  notes?: string | null;
+}
+
+export interface TariffCoverageChapter {
+  chapter: string;
+  classification_codes: number;
+  bcd_rates: number;
+  sws_rates?: number;
+  igst_rates: number;
+  exemption_rules: number;
+  preferential_rules: number;
+  bcd_status?: string;
+  sws_status?: string;
+  igst_status?: string;
+  classification_status?: string;
+  exemption_status?: string;
+  preferential_status?: string;
+}
+
+export interface TariffCoverage {
+  origin: string;
+  destination: string;
+  chapters: TariffCoverageChapter[];
+  honesty_note: string;
+}
+
+export interface ExemptionRule {
+  id: string;
+  notification_id: string;
+  notification_year?: number | null;
+  serial_no: string;
+  label: string;
+  hs_match: string;
+  origin: string;
+  destination: string;
+  condition_code: string;
+  condition_detail: string;
+  effect: Record<string, unknown>;
+  source_document_id?: string | null;
+  eligibility: 'eligible_now' | 'eligible_if_coo' | 'not_eligible';
+  eligibility_reason: string;
+}
+
+export interface DutyStructure {
+  hs_code: string;
+  origin: string;
+  destination: string;
+  as_of: string;
+  assessable_value: string | number;
+  currency: string;
+  tariff_rate_id?: string | null;
+  data_quality: string;
+  stack: DutyStackLine[];
+  component_sources?: ComponentProvenance[];
+  coverage?: Record<string, string>;
+  total_duties: string | number;
+  landed_cost: string | number;
+  mfn_total_duties: string | number;
+  duty_savings: string | number;
+  selected_exemption_id?: string | null;
+  selected_exemption_label?: string | null;
+  exemptions: ExemptionRule[];
+  preferential_status?: string | null;
+  preferential_blocked_reason?: string | null;
+  honesty_note: string;
 }
 
 export interface LandedCostBreakdown {
@@ -139,12 +228,18 @@ export interface LandedCostBreakdown {
   bcd: string | number;
   sws: string | number;
   igst: string | number;
+  aidc?: string | number;
+  health_cess?: string | number;
+  compensation_cess?: string | number;
   total_duties_taxes: string | number;
   landed_cost: string | number;
   currency: string;
   bcd_rate_pct: string | number;
   sws_pct_of_bcd: string | number;
   igst_rate_pct: string | number;
+  aidc_rate_pct?: string | number;
+  health_cess_rate_pct?: string | number;
+  compensation_cess_rate_pct?: string | number;
   tariff_rate_id: string;
   data_quality: string;
   source_document_id: string;
@@ -156,6 +251,12 @@ export interface LandedCostBreakdown {
   calculation_mode?: 'estimate' | 'customs';
   title?: string;
   assumptions?: string[];
+  duty_stack?: DutyStackLine[];
+  exemption_rule_id?: string | null;
+  exemption_label?: string | null;
+  mfn_total_duties?: string | number | null;
+  duty_savings?: string | number | null;
+  honesty_note?: string;
 }
 
 export type DocStatus = 'not_started' | 'draft' | 'needs_review' | 'ready';
@@ -197,10 +298,20 @@ export interface Shipment {
   assumptions?: Record<string, unknown>;
   hs_confirmed_at?: string | null;
   status: string;
+  closed_at?: string | null;
+  archived_at?: string | null;
+  assign_reviewer_user_id?: string | null;
+  lifecycle?: 'open' | 'closed' | 'discarded';
+  exporter_party_id?: string | null;
+  importer_party_id?: string | null;
+  consignee_party_id?: string | null;
   created_at: string;
   updated_at: string;
   latest_calculation?: LandedCostBreakdown | null;
   checklist?: Checklist | null;
+  line_items?: LineItem[];
+  evidence?: EvidenceItem[];
+  calculation_snapshots?: CalculationSnapshot[];
 }
 
 export interface WorkspaceRiskFlag {
@@ -240,6 +351,7 @@ export interface ShipmentWorkspace {
     human_review_required?: boolean;
     factors: { code: string; label: string; weight: number; score: number; detail: string }[];
     missing: string[];
+    blocked_reasons?: string[];
     statuses?: { code: string; label: string; active: boolean; detail: string }[];
     complete_items?: { code: string; label: string; complete: boolean }[];
     missing_items?: { code: string; label: string; complete: boolean }[];
@@ -291,6 +403,7 @@ export interface AskResponse {
     | 'no_approved_source';
   assumptions?: string[];
   next_action?: string;
+  next_action_code?: 'upload_coo' | 'confirm_hs' | 'add_freight' | 'open_fta' | 'none' | null;
   source_status?: string;
 }
 
@@ -472,6 +585,8 @@ export interface DashboardShipmentCard {
   status: string;
   as_of_date: string;
   chips: string[];
+  blocked_reasons?: string[];
+  readiness_band?: 'blocked' | 'partial' | 'ready' | null;
   updated_at: string;
 }
 
@@ -602,6 +717,7 @@ export interface SourceConnection {
   publisher: string;
   fetch_mode: string;
   source_url: string | null;
+  document_url?: string | null;
   local_path: string | null;
   enabled: boolean;
   origin: string;
@@ -617,6 +733,18 @@ export interface SourceConnection {
   last_archive_path: string | null;
   last_source_document_id: string | null;
   created_at: string;
+  pipeline_stage?: string | null;
+  last_final_url?: string | null;
+  last_content_type?: string | null;
+  last_ingest_batch_id?: string | null;
+  last_published_version_id?: string | null;
+  last_published_at?: string | null;
+  next_attempt_at?: string | null;
+  refresh_mode?: 'manual_only' | 'scheduled';
+  fetch_overdue?: boolean;
+  freshness_sla_hours?: number | null;
+  published_rates_usable?: boolean;
+  lane?: 'live_official' | 'demo_fixture' | 'local_archive' | 'other';
 }
 
 export interface SourceFetchResult {
@@ -627,17 +755,40 @@ export interface SourceFetchResult {
   resolved_from: string;
   ingest_batch_id: string | null;
   message: string;
+  outcome?: string | null;
+  semantic_fingerprint?: string | null;
 }
 
 export interface SourceFeedStatus {
   configured: boolean;
   enabled_connection_count: number;
   official_source_connection: string;
+  source_connection_kind?: string;
+  source_connection_label?: string;
   live_government_feed: boolean;
   live_feed_enabled_setting: boolean;
   live_feed_reason: string;
   last_successful_fetch_at: string | null;
+  last_attempt_at?: string | null;
+  scheduler_enabled?: boolean;
+  refresh_mode?: 'manual_only' | 'scheduled';
   scheduler_interval_minutes: number;
+  has_live_adapter?: boolean;
+  next_attempt_at?: string | null;
+  fetch_overdue?: boolean;
+  published_rates_usable?: boolean;
+  last_error?: string | null;
+}
+
+export interface IngestBatchDiff {
+  batch_id: string;
+  source_key: string;
+  effective_from: string | null;
+  checksum: string;
+  archive_path: string;
+  changes: Array<Record<string, unknown>>;
+  quarantined: Array<Record<string, unknown>>;
+  affected_hs_codes: string[];
 }
 
 export interface JobRun {
@@ -657,17 +808,261 @@ function apiBase(): string {
   return '';
 }
 
-async function request<T>(path: string, init?: RequestInit): Promise<T> {
+export interface AuthWhoAmI {
+  authenticated: boolean;
+  auth_enabled: boolean;
+  allow_anonymous_publish?: boolean;
+  actor: string;
+  role: 'viewer' | 'operator' | 'reviewer' | 'admin' | string;
+  email: string | null;
+  organization_id: string | null;
+  auth_method: string | null;
+  user_id?: string | null;
+  display_name?: string | null;
+  notification_prefs?: Record<string, unknown>;
+  mfa_required?: boolean;
+}
+
+export interface UserAccount {
+  id: string;
+  organization_id: string;
+  email: string;
+  name: string;
+  role: string;
+  idp_subject?: string | null;
+  notification_prefs: Record<string, unknown>;
+  created_at: string;
+}
+
+export interface AdminUser {
+  id: string;
+  email: string;
+  name: string;
+  role: string;
+  organization_id: string;
+  organization_name?: string | null;
+  created_at: string;
+}
+
+export interface UserInvite {
+  id: string;
+  organization_id: string;
+  email: string;
+  role: string;
+  invited_by?: string | null;
+  status: string;
+  created_at: string;
+  accepted_at?: string | null;
+}
+
+export interface Party {
+  id: string;
+  organization_id?: string | null;
+  name: string;
+  role: string;
+  country?: string | null;
+  address_text?: string | null;
+  tax_id?: string | null;
+  notes?: string | null;
+  created_at: string;
+}
+
+export interface LineItem {
+  id: string;
+  shipment_id: string;
+  line_number: number;
+  description: string;
+  hs_code?: string | null;
+  qty: string | number;
+  unit_value?: string | number | null;
+  currency: string;
+  origin?: string | null;
+  notes?: string | null;
+}
+
+export interface EvidenceItem {
+  id: string;
+  shipment_id?: string | null;
+  kind: string;
+  label: string;
+  source_document_id?: string | null;
+  tariff_rate_id?: string | null;
+  excerpt?: string | null;
+  uri?: string | null;
+  checksum?: string | null;
+  status: string;
+  meta?: Record<string, unknown>;
+  created_at: string;
+}
+
+export interface CaseComment {
+  id: string;
+  shipment_id: string;
+  organization_id?: string | null;
+  author_user_id?: string | null;
+  author_actor: string;
+  body: string;
+  created_at: string;
+}
+
+export interface AskHistoryItem {
+  ask_run_id: string;
+  shipment_id?: string | null;
+  query: string;
+  route: string;
+  answer?: string | null;
+  decision?: string | null;
+  next_action?: string | null;
+  next_action_code?: 'upload_coo' | 'confirm_hs' | 'add_freight' | 'open_fta' | 'none' | null;
+  tools_invoked: string[];
+  latency_ms: number;
+  created_at: string;
+}
+
+export interface ScenarioImpact {
+  id: string;
+  shipment_id: string;
+  shipment_title?: string | null;
+  hs_code: string;
+  origin: string;
+  destination: string;
+  old_rate: string | number;
+  new_rate: string | number;
+  duty_delta?: string | number | null;
+  landed_delta?: string | number | null;
+  currency: string;
+  recommended_action: string;
+  summary: string;
+  created_at: string;
+  acknowledged_at?: string | null;
+  source_document_id?: string | null;
+  effective_from?: string | null;
+  old_stack_signature?: string | null;
+  new_stack_signature?: string | null;
+  component_deltas?: Record<string, { old?: number; new?: number }>;
+}
+
+export interface NotificationItem {
+  id: string;
+  kind: string;
+  title: string;
+  body: string;
+  watchlist_item_id?: string | null;
+  shipment_id?: string | null;
+  user_id?: string | null;
+  organization_id?: string | null;
+  is_read: boolean;
+  created_at: string;
+}
+
+export interface ShareLink {
+  id: string;
+  token: string;
+  shipment_id: string;
+  organization_id?: string | null;
+  created_by?: string | null;
+  created_at: string;
+  expires_at?: string | null;
+  share_path: string;
+}
+
+export interface PublicShare {
+  shipment_id: string;
+  title: string;
+  readiness: NonNullable<ShipmentWorkspace['readiness']>;
+  papers: ChecklistItem[];
+}
+
+export interface SearchHit {
+  kind: 'shipment' | 'hs' | 'document';
+  id: string;
+  title: string;
+  snippet?: string | null;
+  shipment_id?: string | null;
+  hs_code?: string | null;
+}
+
+export interface SearchOut {
+  query: string;
+  results: SearchHit[];
+}
+
+export interface ProductTemplate {
+  id: string;
+  organization_id: string;
+  name: string;
+  product_text: string;
+  hs_code?: string | null;
+  origin?: string | null;
+  destination?: string | null;
+  notes?: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface Organization {
+  id: string;
+  name: string;
+  country?: string | null;
+  tax_identifier?: string | null;
+  mfa_required?: boolean;
+  created_at?: string;
+}
+
+export interface FtaCompareOut {
+  shipment_id: string;
+  without_preferential: CalculationSnapshot;
+  with_preferential: CalculationSnapshot;
+  diff: SnapshotDiff;
+  preferential_rate_pct?: string | number | null;
+  agreement_id?: string | null;
+  agreement_name?: string | null;
+}
+
+type TokenProvider = (forceRefresh?: boolean) => Promise<string | null>;
+
+let accessTokenProvider: TokenProvider = async () => null;
+
+export function setAccessTokenProvider(provider: TokenProvider): void {
+  accessTokenProvider = provider;
+}
+
+async function authHeaders(extra?: HeadersInit, skipJson = false): Promise<Headers> {
+  const headers = new Headers(extra || {});
+  if (!skipJson && !headers.has('Content-Type')) {
+    headers.set('Content-Type', 'application/json');
+  }
+  const token = await accessTokenProvider(false);
+  if (token) {
+    headers.set('Authorization', `Bearer ${token}`);
+  }
+  return headers;
+}
+
+async function request<T>(path: string, init?: RequestInit, retried = false): Promise<T> {
+  const headers = await authHeaders(init?.headers);
   const response = await fetch(`${apiBase()}${path}`, {
-    headers: { 'Content-Type': 'application/json', ...(init?.headers || {}) },
     ...init,
+    headers,
   });
-  if (!response.ok) {
-    let message = `API ${path} failed: ${response.status}`;
+  let finalResponse = response;
+  if (response.status === 401 && !retried) {
+    const refreshed = await accessTokenProvider(true);
+    if (refreshed) {
+      const retryHeaders = new Headers(init?.headers || {});
+      if (!retryHeaders.has('Content-Type') && !(init?.body instanceof FormData)) {
+        retryHeaders.set('Content-Type', 'application/json');
+      }
+      retryHeaders.set('Authorization', `Bearer ${refreshed}`);
+      finalResponse = await fetch(`${apiBase()}${path}`, { ...init, headers: retryHeaders });
+    }
+  }
+  if (!finalResponse.ok) {
+    let message = `API ${path} failed: ${finalResponse.status}`;
     let code: string | undefined;
     let details: Record<string, unknown> | undefined;
     try {
-      const body = await response.json();
+      const body = await finalResponse.json();
       message = body?.error?.message || message;
       code = body?.error?.code;
       details = body?.error?.details;
@@ -680,15 +1075,59 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
         : undefined;
     throw new ApiError(message, { code, details, coverageMiss });
   }
-  return response.json() as Promise<T>;
+  if (finalResponse.status === 204) return undefined as T;
+  return finalResponse.json() as Promise<T>;
+}
+
+async function requestBlob(path: string, filenameHint?: string): Promise<Blob> {
+  const headers = await authHeaders(undefined, true);
+  headers.delete('Content-Type');
+  let response = await fetch(`${apiBase()}${path}`, { headers });
+  if (response.status === 401) {
+    const refreshed = await accessTokenProvider(true);
+    if (refreshed) {
+      const retryHeaders = new Headers();
+      retryHeaders.set('Authorization', `Bearer ${refreshed}`);
+      response = await fetch(`${apiBase()}${path}`, { headers: retryHeaders });
+    }
+  }
+  if (!response.ok) {
+    let message = `API ${path} failed: ${response.status}`;
+    try {
+      const body = await response.json();
+      message = body?.error?.message || message;
+    } catch {
+      /* ignore */
+    }
+    throw new ApiError(message);
+  }
+  const blob = await response.blob();
+  if (filenameHint) {
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filenameHint;
+    a.click();
+    URL.revokeObjectURL(url);
+  }
+  return blob;
 }
 
 export const api = {
+  getWhoAmI: () => request<AuthWhoAmI>('/api/v1/auth/whoami'),
+  patchMe: (body: { display_name?: string; notification_prefs?: Record<string, unknown> }) =>
+    request<UserAccount>('/api/v1/auth/me', { method: 'PATCH', body: JSON.stringify(body) }),
   getHealth: () => request<HealthResponse>('/api/v1/health'),
   getSystemStatus: () => request<SystemStatus>('/api/v1/system/status'),
   getCustomsAvailability: () =>
     request<CustomsModeAvailability>('/api/v1/calculate/customs-availability'),
-  getDashboard: () => request<DashboardOut>('/api/v1/dashboard'),
+  getDashboard: (opts?: { queue?: 'blocked' | 'alerts' | 'all' }) => {
+    const params = new URLSearchParams();
+    if (opts?.queue) params.set('queue', opts.queue);
+    const q = params.toString();
+    return request<DashboardOut>(`/api/v1/dashboard${q ? `?${q}` : ''}`);
+  },
+  listOrganizations: () => request<Organization[]>('/api/v1/organizations'),
   listHsCodes: (q?: string, chapter = '61') => {
     const params = new URLSearchParams();
     if (q) params.set('q', q);
@@ -731,7 +1170,8 @@ export const api = {
       method: 'POST',
       body: JSON.stringify(body),
     }),
-  listShipments: () => request<Shipment[]>('/api/v1/shipments'),
+  listShipments: (lifecycle: 'open' | 'closed' | 'discarded' | 'all' = 'open') =>
+    request<Shipment[]>(`/api/v1/shipments?lifecycle=${lifecycle}`),
   createShipment: (body: Record<string, unknown>) =>
     request<Shipment>('/api/v1/shipments', { method: 'POST', body: JSON.stringify(body) }),
   getShipment: (id: string) => request<Shipment>(`/api/v1/shipments/${id}`),
@@ -739,29 +1179,162 @@ export const api = {
     request<ShipmentWorkspace>(`/api/v1/shipments/${id}/workspace`),
   updateShipment: (id: string, body: Record<string, unknown>) =>
     request<Shipment>(`/api/v1/shipments/${id}`, { method: 'PATCH', body: JSON.stringify(body) }),
+  closeShipment: (id: string) =>
+    request<Shipment>(`/api/v1/shipments/${id}/close`, { method: 'POST', body: '{}' }),
+  reopenShipment: (id: string) =>
+    request<Shipment>(`/api/v1/shipments/${id}/reopen`, { method: 'POST', body: '{}' }),
+  discardShipment: (id: string) =>
+    request<Shipment>(`/api/v1/shipments/${id}`, { method: 'DELETE' }),
   calculateShipment: (
     id: string,
     body?: {
       requested_mode?: 'estimate' | 'customs' | null;
       freight?: number | string | null;
       insurance?: number | string | null;
+      selected_exemption_id?: string | null;
     },
   ) =>
     request<Shipment>(`/api/v1/shipments/${id}/calculate`, {
       method: 'POST',
       body: JSON.stringify(body || {}),
     }),
+  getDutyStructure: (params: {
+    hs: string;
+    origin: string;
+    destination?: string;
+    as_of: string;
+    assessable_value?: number | string;
+    currency?: string;
+    selected_exemption_id?: string | null;
+    shipment_id?: string | null;
+  }) => {
+    const q = new URLSearchParams({
+      hs: params.hs,
+      origin: params.origin,
+      destination: params.destination || 'IN',
+      as_of: params.as_of,
+    });
+    if (params.assessable_value != null) q.set('assessable_value', String(params.assessable_value));
+    if (params.currency) q.set('currency', params.currency);
+    if (params.selected_exemption_id) q.set('selected_exemption_id', params.selected_exemption_id);
+    if (params.shipment_id) q.set('shipment_id', params.shipment_id);
+    return request<DutyStructure>(`/api/v1/duty/structure?${q}`);
+  },
+  getDutyCoverage: (params?: { origin?: string; destination?: string }) => {
+    const q = new URLSearchParams({
+      origin: params?.origin || 'BD',
+      destination: params?.destination || 'IN',
+    });
+    return request<TariffCoverage>(`/api/v1/duty/coverage?${q}`);
+  },
+  listDutyExemptions: (params: {
+    hs: string;
+    origin: string;
+    destination?: string;
+    as_of: string;
+    shipment_id?: string | null;
+  }) => {
+    const q = new URLSearchParams({
+      hs: params.hs,
+      origin: params.origin,
+      destination: params.destination || 'IN',
+      as_of: params.as_of,
+    });
+    if (params.shipment_id) q.set('shipment_id', params.shipment_id);
+    return request<ExemptionRule[]>(`/api/v1/duty/exemptions?${q}`);
+  },
   listCalculationSnapshots: (id: string) =>
     request<CalculationSnapshot[]>(`/api/v1/shipments/${id}/calculation-snapshots`),
   listScenarioCalculations: (id: string) =>
     request<CalculationSnapshot[]>(`/api/v1/scenarios/${id}/calculations`),
   getScenarioTimeline: (id: string) =>
     request<ScenarioTimeline>(`/api/v1/scenarios/${id}/timeline`),
-  acknowledgeImpact: (impactId: string) =>
-    request<Record<string, unknown>>(`/api/v1/impacts/${impactId}/acknowledge`, {
+  getShipmentTimeline: (id: string) =>
+    request<ScenarioTimeline>(`/api/v1/shipments/${id}/timeline`),
+  getAskHistory: (shipmentId: string) =>
+    request<AskHistoryItem[]>(`/api/v1/shipments/${shipmentId}/ask-history`),
+  downloadShipmentPack: (id: string) =>
+    requestBlob(`/api/v1/shipments/${id}/pack`, `shipment_${id.slice(0, 8)}_pack.zip`),
+  exportSummaryPdf: (id: string) =>
+    requestBlob(`/api/v1/shipments/${id}/summary.pdf`, `shipment_${id.slice(0, 8)}_summary.pdf`),
+  exportCostCsv: (id: string) =>
+    requestBlob(`/api/v1/shipments/${id}/cost.csv`, `shipment_${id.slice(0, 8)}_cost.csv`),
+  compareFta: (id: string) =>
+    request<FtaCompareOut>(`/api/v1/shipments/${id}/compare-fta`, {
       method: 'POST',
       body: '{}',
     }),
+  patchLineItem: (shipmentId: string, lineId: string, body: Record<string, unknown>) =>
+    request<Shipment>(`/api/v1/shipments/${shipmentId}/line-items/${lineId}`, {
+      method: 'PATCH',
+      body: JSON.stringify(body),
+    }),
+  deleteLineItem: (shipmentId: string, lineId: string) =>
+    request<Shipment>(`/api/v1/shipments/${shipmentId}/line-items/${lineId}`, {
+      method: 'DELETE',
+    }),
+  addLineItem: (shipmentId: string, body: Record<string, unknown>) =>
+    request<Shipment>(`/api/v1/shipments/${shipmentId}/line-items`, {
+      method: 'POST',
+      body: JSON.stringify(body),
+    }),
+  addEvidence: (shipmentId: string, body: Record<string, unknown>) =>
+    request<Shipment>(`/api/v1/shipments/${shipmentId}/evidence`, {
+      method: 'POST',
+      body: JSON.stringify(body),
+    }),
+  listComments: (shipmentId: string) =>
+    request<CaseComment[]>(`/api/v1/shipments/${shipmentId}/comments`),
+  addComment: (shipmentId: string, body: string) =>
+    request<CaseComment>(`/api/v1/shipments/${shipmentId}/comments`, {
+      method: 'POST',
+      body: JSON.stringify({ body }),
+    }),
+  assignReviewer: (shipmentId: string, assign_reviewer_user_id: string | null) =>
+    request<Shipment>(`/api/v1/shipments/${shipmentId}/assign-reviewer`, {
+      method: 'PATCH',
+      body: JSON.stringify({ assign_reviewer_user_id }),
+    }),
+  createShareLink: (shipmentId: string) =>
+    request<ShareLink>(`/api/v1/shipments/${shipmentId}/share-links`, {
+      method: 'POST',
+      body: '{}',
+    }),
+  getPublicShare: (token: string) =>
+    request<PublicShare>(`/api/v1/public/share/${encodeURIComponent(token)}`),
+  listImpacts: () => request<ScenarioImpact[]>('/api/v1/impacts'),
+  acknowledgeImpact: (impactId: string) =>
+    request<ScenarioImpact>(`/api/v1/impacts/${impactId}/acknowledge`, {
+      method: 'POST',
+      body: '{}',
+    }),
+  listNotifications: (unreadOnly = false) =>
+    request<NotificationItem[]>(
+      `/api/v1/notifications${unreadOnly ? '?unread_only=true' : ''}`,
+    ),
+  markNotificationRead: (id: string) =>
+    request<NotificationItem>(`/api/v1/notifications/${id}/read`, {
+      method: 'POST',
+      body: '{}',
+    }),
+  listAdminUsers: () => request<AdminUser[]>('/api/v1/admin/users'),
+  patchAdminUser: (userId: string, role: string) =>
+    request<AdminUser>(`/api/v1/admin/users/${userId}`, {
+      method: 'PATCH',
+      body: JSON.stringify({ role }),
+    }),
+  createInvite: (body: { email: string; role?: string }) =>
+    request<UserInvite>('/api/v1/admin/invites', {
+      method: 'POST',
+      body: JSON.stringify(body),
+    }),
+  listInvites: () => request<UserInvite[]>('/api/v1/admin/invites'),
+  listParties: () => request<Party[]>('/api/v1/parties'),
+  createParty: (body: Record<string, unknown>) =>
+    request<Party>('/api/v1/parties', { method: 'POST', body: JSON.stringify(body) }),
+  listProductTemplates: () => request<ProductTemplate[]>('/api/v1/product-templates'),
+  globalSearch: (q: string) =>
+    request<SearchOut>(`/api/v1/search?q=${encodeURIComponent(q)}`),
   getCalculation: (id: string) =>
     request<CalculationSnapshot>(`/api/v1/calculations/${id}`),
   diffCalculations: (leftId: string, rightId: string) =>
@@ -797,8 +1370,11 @@ export const api = {
     const body = new FormData();
     body.append('doc_code', docCode);
     body.append('file', file);
-    const res = await fetch(`/api/v1/shipments/${shipmentId}/uploads`, {
+    const headers = await authHeaders(undefined, true);
+    headers.delete('Content-Type');
+    const res = await fetch(`${apiBase()}/api/v1/shipments/${shipmentId}/uploads`, {
       method: 'POST',
+      headers,
       body,
     });
     if (!res.ok) {
@@ -841,6 +1417,8 @@ export const api = {
     }),
   listIngestBatches: () => request<IngestionBatchOut[]>('/api/v1/ingest/batches'),
   getIngestBatch: (id: string) => request<IngestionBatchDetail>(`/api/v1/ingest/batches/${id}`),
+  getIngestBatchDiff: (id: string) =>
+    request<IngestBatchDiff>(`/api/v1/ingest/batches/${encodeURIComponent(id)}/diff`),
   approveIngestBatch: (id: string, notes?: string) =>
     request<IngestionBatchDetail>(`/api/v1/ingest/batches/${id}/approve`, {
       method: 'POST',
@@ -925,11 +1503,14 @@ export const api = {
     request<SourceConnection[]>('/api/v1/source-connections'),
   getSourceFeedStatus: () =>
     request<SourceFeedStatus>('/api/v1/source-connections/feed-status'),
-  fetchSourceConnection: (key: string, runIngest = false) =>
-    request<SourceFetchResult>(
-      `/api/v1/source-connections/${encodeURIComponent(key)}/fetch?run_ingest=${runIngest}`,
+  fetchSourceConnection: (key: string, runIngest?: boolean) => {
+    const q =
+      runIngest === undefined ? '' : `?run_ingest=${runIngest ? 'true' : 'false'}`;
+    return request<SourceFetchResult>(
+      `/api/v1/source-connections/${encodeURIComponent(key)}/fetch${q}`,
       { method: 'POST' },
-    ),
+    );
+  },
   runSourceFetchJob: (runIngest = false) =>
     request<JobRun>(`/api/v1/jobs/source-fetch?run_ingest=${runIngest}`, { method: 'POST' }),
 };

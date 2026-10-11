@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from typing import Literal
+
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
@@ -14,10 +16,12 @@ from backend.app.domain.trade import (
 )
 from backend.app.services import shipment_service, system_status_service, watchlist_service
 
+DashboardQueue = Literal["blocked", "alerts", "all"]
+
 
 def _chips_for_shipment(
     shipment_id: str, session: Session
-) -> tuple[list[str], list[DashboardAlert]]:
+) -> tuple[list[str], list[DashboardAlert], list[str], str]:
     from backend.app.services import readiness_service
 
     detail = shipment_service.get_shipment(session, shipment_id)
@@ -72,10 +76,15 @@ def _chips_for_shipment(
     if readiness.human_review_required:
         chips.append("Needs broker review")
 
-    return chips, alerts
+    return chips, alerts, list(readiness.blocked_reasons), readiness.band
 
 
-def build_dashboard(session: Session, settings: Settings | None = None) -> DashboardOut:
+def build_dashboard(
+    session: Session,
+    settings: Settings | None = None,
+    *,
+    queue: DashboardQueue = "all",
+) -> DashboardOut:
     if settings is None:
         from backend.app.core.config import get_settings
 
@@ -84,10 +93,17 @@ def build_dashboard(session: Session, settings: Settings | None = None) -> Dashb
     rows = session.scalars(select(Shipment).order_by(Shipment.updated_at.desc()).limit(12)).all()
     cards: list[DashboardShipmentCard] = []
     alerts: list[DashboardAlert] = []
+    card_alert_ids: set[str] = set()
 
     for row in rows:
-        chips, shipment_alerts = _chips_for_shipment(row.id, session)
+        from backend.app.services.shipment_service import _lifecycle
+
+        if _lifecycle(row.status) == "discarded":
+            continue
+        chips, shipment_alerts, blocked_reasons, band = _chips_for_shipment(row.id, session)
         alerts.extend(shipment_alerts)
+        if shipment_alerts:
+            card_alert_ids.add(row.id)
         cards.append(
             DashboardShipmentCard(
                 id=row.id,
@@ -98,6 +114,8 @@ def build_dashboard(session: Session, settings: Settings | None = None) -> Dashb
                 status=row.status,
                 as_of_date=row.as_of_date,
                 chips=chips,
+                blocked_reasons=blocked_reasons,
+                readiness_band=band,  # type: ignore[arg-type]
                 updated_at=row.updated_at,
             )
         )
@@ -113,6 +131,8 @@ def build_dashboard(session: Session, settings: Settings | None = None) -> Dashb
                 ),
             )
         )
+        for sid in change.affected_shipment_ids or []:
+            card_alert_ids.add(sid)
 
     from backend.app.services import impact_service
 
@@ -139,6 +159,12 @@ def build_dashboard(session: Session, settings: Settings | None = None) -> Dashb
                 new_calculation_id=impact.new_snapshot_id,
             ),
         )
+        card_alert_ids.add(impact.shipment_id)
+
+    if queue == "blocked":
+        cards = [c for c in cards if c.readiness_band == "blocked"]
+    elif queue == "alerts":
+        cards = [c for c in cards if c.id in card_alert_ids]
 
     status = system_status_service.build_system_status(session, settings)
     data_status = system_status_service.data_status_from_system(status)

@@ -23,19 +23,25 @@ def create_database_engine(database_url: str | None = None) -> Engine:
         and database_path not in {"", ":memory:"}
     ):
         Path(database_path).parent.mkdir(parents=True, exist_ok=True)
-    connect_args = {"check_same_thread": False} if url.startswith("sqlite") else {}
-    engine = create_engine(url, connect_args=connect_args)
+    connect_args: dict[str, object] = {}
+    if url.startswith("sqlite"):
+        # Timeout waits for locks instead of failing immediately under concurrent writes.
+        connect_args = {"check_same_thread": False, "timeout": 30}
+    engine = create_engine(url, connect_args=connect_args, pool_pre_ping=True)
 
     if url.startswith("sqlite"):
 
         @event.listens_for(engine, "connect")
-        def enable_sqlite_foreign_keys(dbapi_connection: object, connection_record: object) -> None:
+        def configure_sqlite(dbapi_connection: object, connection_record: object) -> None:
             del connection_record
             if not isinstance(dbapi_connection, SQLiteConnection):
                 raise TypeError("SQLite URL produced a non-SQLite connection")
             cursor = dbapi_connection.cursor()
             try:
                 cursor.execute("PRAGMA foreign_keys=ON")
+                # WAL allows concurrent readers while a writer is active.
+                cursor.execute("PRAGMA journal_mode=WAL")
+                cursor.execute("PRAGMA busy_timeout=30000")
             finally:
                 cursor.close()
 

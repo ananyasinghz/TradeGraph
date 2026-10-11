@@ -116,13 +116,26 @@ export const OPERATOR = {
   caseSteps: ['Classify product', 'Check duty', 'Cost', 'Papers', 'Preferential'] as const,
   caseTabs: {
     overview: 'Overview',
-    classify: 'Classify',
+    product: 'Product',
+    classify: 'Classification',
     tariff: 'Duty',
     fta: 'Preferential',
     cost: 'Cost',
     docs: 'Papers',
-    readiness: 'Ready?',
+    evidence: 'Evidence',
+    ask: 'Ask',
+    activity: 'Activity',
   },
+  navSettings: 'Settings',
+  navLegal: 'Legal',
+  queueAll: 'All cases',
+  queueBlocked: 'Blocked',
+  queueAlerts: 'Alerts',
+  nextActionBar: 'Next action',
+  downloadPack: 'Download clearance pack',
+  openCase: 'Open case',
+  linkCase: 'Link a clearance case',
+  searchPlaceholder: 'Search cases, HS, papers…',
   caseEstimate: 'Estimate',
   caseVerified: 'Verified estimate',
   caseFiling: 'Filing preparation',
@@ -151,15 +164,19 @@ export const OPERATOR = {
     'Review proposed rates',
     'Make rates live',
   ] as const,
-  sourcesPromote: 'Make CBIC fixture rates live',
-  sourcesLoadOnly: 'Load notice only',
+  sourcesPromote: 'Make demo fixture rates live',
+  sourcesLoadOnly: 'Load demo fixture only',
   sourcesTechLog: 'Technical log',
   sourcesAfter:
     'After rates are live: open Duty rates — cotton T-shirts (6109.10) should show Checked rate; filing-ready calc unlocks when freight and insurance are on a clearance case.',
 
   disclaimerShort:
     'TradeGraph helps you prepare clearance decisions. Always verify classifications, duties, and preferential claims against official sources (and a licensed professional where needed).',
+  disclaimerLong:
+    'TradeGraph is decision-support software for trade compliance workflows. Classifications, duties, preferential claims, and document packs require verification against official sources and, where appropriate, a licensed customs professional. Sample or illustrative rates are not legal determinations.',
   footerTechToggle: 'Show technical details',
+  welcomePersonaLabel: 'Learning persona (UX only)',
+  welcomeServerRole: 'Your access role comes from sign-in (viewer / operator / reviewer / admin).',
 } as const;
 
 export function sourceStatusOperator(label: string | null | undefined): string {

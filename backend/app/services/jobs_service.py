@@ -1,4 +1,4 @@
-"""Background-style jobs and watchlist impact notifications (S13)."""
+"""Background-style jobs and watchlist impact notifications (S13 + R7/R10)."""
 
 from __future__ import annotations
 
@@ -7,9 +7,9 @@ from datetime import UTC, datetime
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from backend.app.data.models import JobRun, Notification
+from backend.app.data.models import JobRun, Notification, Organization, UserAccount
 from backend.app.domain.trade import JobRunOut, NotificationOut
-from backend.app.services import source_connection_service, watchlist_service
+from backend.app.services import email_service, source_connection_service, watchlist_service
 
 
 def _now() -> datetime:
@@ -24,6 +24,8 @@ def notification_to_out(row: Notification) -> NotificationOut:
         body=row.body,
         watchlist_item_id=row.watchlist_item_id,
         shipment_id=row.shipment_id,
+        user_id=getattr(row, "user_id", None),
+        organization_id=getattr(row, "organization_id", None),
         is_read=row.is_read,
         created_at=row.created_at,
     )
@@ -49,24 +51,57 @@ def mark_read(session: Session, notification_id: str) -> NotificationOut:
     return notification_to_out(row)
 
 
+def _prefs_allow_in_app(prefs: dict | None) -> bool:
+    if not prefs:
+        return True
+    return bool(prefs.get("in_app", True))
+
+
+def _prefs_allow_email(prefs: dict | None) -> bool:
+    if not prefs:
+        return True
+    return bool(prefs.get("watchlist_email", prefs.get("email", True)))
+
+
 def run_watchlist_impact_job(session: Session) -> JobRunOut:
     started = _now()
     changes = watchlist_service.list_changes(session)
+    users = session.scalars(select(UserAccount)).all()
     created = 0
+    emailed = 0
     for change in changes:
-        for shipment_id in change.affected_shipment_ids or [None]:
-            session.add(
-                Notification(
-                    kind="watchlist_impact",
-                    title=f"Rate change {change.hs_code} {change.origin}->{change.destination}",
-                    body=change.summary,
-                    watchlist_item_id=change.watchlist_item_id,
-                    shipment_id=shipment_id,
-                    is_read=False,
-                    created_at=_now(),
+        title = f"Rate change {change.hs_code} {change.origin}->{change.destination}"
+        body = change.summary
+        shipment_ids = change.affected_shipment_ids or [None]
+        for user in users:
+            prefs = dict(user.notification_prefs or {})
+            if not _prefs_allow_in_app(prefs):
+                continue
+            for shipment_id in shipment_ids:
+                session.add(
+                    Notification(
+                        kind="watchlist_impact",
+                        title=title,
+                        body=body,
+                        watchlist_item_id=change.watchlist_item_id,
+                        shipment_id=shipment_id,
+                        user_id=user.id,
+                        organization_id=user.organization_id,
+                        is_read=False,
+                        created_at=_now(),
+                    )
                 )
-            )
-            created += 1
+                created += 1
+            if _prefs_allow_email(prefs):
+                email_service.send_email(
+                    to=user.email,
+                    subject=title,
+                    body=body,
+                )
+                emailed += 1
+            org = session.get(Organization, user.organization_id)
+            webhook = getattr(org, "slack_webhook_url", None) if org else None
+            email_service.notify_slack(f"{title}\n{body}", webhook_url=webhook)
     finished = _now()
     job = JobRun(
         job_type="watchlist_impact",
@@ -76,6 +111,7 @@ def run_watchlist_impact_job(session: Session) -> JobRunOut:
         summary_json={
             "changes": len(changes),
             "notifications_created": created,
+            "emails_sent": emailed,
         },
     )
     session.add(job)
@@ -90,7 +126,32 @@ def run_watchlist_impact_job(session: Session) -> JobRunOut:
     )
 
 
-def run_source_fetch_job(session: Session, *, run_ingest: bool = False) -> JobRunOut:
+def run_retention_archive_job(session: Session, *, days: int = 90) -> JobRunOut:
+    from backend.app.services import shipment_service
+
+    started = _now()
+    result = shipment_service.retention_archive(session, days=days)
+    finished = _now()
+    job = JobRun(
+        job_type="retention_archive",
+        status="completed",
+        started_at=started,
+        finished_at=finished,
+        summary_json=result,
+    )
+    session.add(job)
+    session.flush()
+    return JobRunOut(
+        id=job.id,
+        job_type=job.job_type,
+        status=job.status,
+        started_at=job.started_at,
+        finished_at=job.finished_at,
+        summary=dict(job.summary_json or {}),
+    )
+
+
+def run_source_fetch_job(session: Session, *, run_ingest: bool | None = None) -> JobRunOut:
     """Phase B: fetch all enabled official-source connections."""
     started = _now()
     results = source_connection_service.fetch_all_enabled(session, run_ingest=run_ingest)

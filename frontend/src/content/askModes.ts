@@ -20,7 +20,7 @@ export const ASK_USER_MODE_OPTIONS: {
   {
     id: 'fixed_multi',
     label: 'Detailed explanation',
-    hint: 'Runs the full multi-tool workflow with citations where available.',
+    hint: 'Full multi-tool workflow; when Ollama is on, ends with a short grounded LLM wrap.',
   },
 ];
 
@@ -30,7 +30,7 @@ export const ASK_MODE_OPTIONS = [
   {
     id: 'always_llm' as const,
     label: 'LLM explanation (research)',
-    hint: 'Full tools + LLM token proxy; duties stay code-based.',
+    hint: 'Full tools + grounded Ollama wrap when enabled; duties stay code-based.',
   },
 ];
 

@@ -13,10 +13,15 @@ from sqlalchemy.orm import Session
 from backend.app.core.errors import AppError
 from backend.app.data.models import AskRun
 from backend.app.domain.trade import AskResponse, LandedCostInput
-from backend.app.orchestration.complexity import estimate_complexity, extract_hs
+from backend.app.orchestration.complexity import (
+    estimate_complexity,
+    extract_hs,
+    is_conceptual_query,
+)
 from backend.app.orchestration.focus import FOCUS_TOOLS, AskFocus
 from backend.app.orchestration.policy import OrchestrationMode, ToolName, decide_policy
 from backend.app.services import (
+    ask_llm_service,
     checklist_service,
     cost_service,
     coverage_service,
@@ -227,12 +232,85 @@ def _execute_tool(
         return
 
     if tool == "llm_explain":
-        # Research-only proxy: wrap verified facts; never invent rates.
-        answers.append(
-            "LLM explanation proxy: restating verified tool outputs only "
-            "(no independent duty calculation)."
+        from backend.app.core.config import get_settings
+        from backend.app.data.models import Shipment
+
+        cfg = get_settings()
+        ship = None
+        sid = state.get("shipment_id")
+        if sid:
+            ship = session.get(Shipment, sid)
+        product_text = getattr(ship, "product_text", None) if ship else None
+        case_ctx = ask_llm_service.format_case_context(
+            ship,
+            extras={
+                "ask_corridor": f"{origin}->{destination}",
+                "ask_hs": hs_code or "pending",
+                "ask_as_of": as_of.isoformat(),
+                "product": product_text or "",
+            },
         )
-        evidence.append({"kind": "llm_explain_proxy", "grounded": True})
+        prior_facts = "\n".join(a for a in answers if a)
+        if product_text:
+            prior_facts = f"case_product={product_text}\n{prior_facts}".strip()
+        # Preferential without HS: deterministic guidance (avoid hallucinated products).
+        q_lower = query.lower()
+        needs_hs = any(k in q_lower for k in ("preferential", "fta", "safta", "duty rate"))
+        if ship and not hs_code and needs_hs:
+            answers.clear()
+            answers.append(
+                ask_llm_service.pending_hs_template(
+                    product_text=str(product_text or ""),
+                    query=query,
+                )
+            )
+            evidence.append(
+                {
+                    "kind": "llm_explain",
+                    "grounded": True,
+                    "template": "pending_hs",
+                    "has_case_context": True,
+                }
+            )
+            return
+        if result.get("fta"):
+            prior_facts = (prior_facts + "\n" + f"fta_json_keys={list(result['fta'].keys())}").strip()
+        explanation = ask_llm_service.grounded_explain(
+            query=query,
+            tool_facts=prior_facts,
+            case_context=case_ctx,
+            settings=cfg,
+            product_text=str(product_text) if product_text else None,
+        )
+        if explanation:
+            result["tool_facts"] = list(answers)
+            answers.clear()
+            answers.append(explanation)
+            evidence.append(
+                {
+                    "kind": "llm_explain",
+                    "grounded": True,
+                    "model": cfg.ollama_model,
+                    "has_case_context": bool(ship),
+                }
+            )
+        else:
+            reason = (
+                "Ollama is disabled"
+                if not cfg.ollama_enabled
+                else "Ollama timed out, returned empty, or was unreachable"
+            )
+            answers.append(
+                f"LLM explanation unavailable ({reason}). "
+                "Showing verified tool outputs only — retry Ask in a moment if the model was busy."
+            )
+            evidence.append(
+                {
+                    "kind": "llm_explain_proxy",
+                    "grounded": True,
+                    "ollama_enabled": bool(cfg.ollama_enabled),
+                }
+            )
         return
 
     # tariff_lookup
@@ -312,12 +390,37 @@ def parse_and_plan(state: AskState) -> AskState:
         }[focus]
         rationale = f"Focus action={focus}; tools={planned_tools}"
 
+    # When Ollama is enabled, append grounded llm_explain last (Ask-only path).
+    from backend.app.core.config import get_settings
+
+    cfg = get_settings()
+    conceptual = is_conceptual_query(query)
+    if cfg.ollama_enabled:
+        if conceptual and not focus and mode != "direct_lookup":
+            # Concept questions: light tools (if any) + explanation; avoid full tariff spam.
+            light: list[str] = []
+            if "fta_check" in estimate.intents and hs_code:
+                light.extend(["fta_check", "graph_expand"])
+            if "regulation_retrieve" in estimate.intents or not light:
+                light.append("regulation_retrieve")
+            planned_tools = [*dict.fromkeys([*light, "llm_explain"])]
+            route = "llm_grounded"
+            rationale = "Conceptual Ask: retrieve context then grounded Ollama explanation"
+        elif "llm_explain" not in planned_tools and mode != "direct_lookup":
+            planned_tools = [*planned_tools, "llm_explain"]
+            rationale = f"{rationale}; +llm_explain (Ollama grounded)"
+        elif mode == "direct_lookup" and conceptual:
+            planned_tools = [*planned_tools, "llm_explain"]
+            rationale = f"{rationale}; +llm_explain for conceptual wrap"
+
     if estimate.intents and decision.primary_intent in {
         "tariff_lookup",
         "landed_cost",
         "fta_check",
     } and not hs_code:
-        warnings.append("No HS code detected in query; clarify HS for an exact lookup.")
+        # Skip HS-missing warning for pure conceptual questions answered by LLM.
+        if not (cfg.ollama_enabled and conceptual):
+            warnings.append("No HS code detected in query; clarify HS for an exact lookup.")
 
     return {
         **state,
@@ -508,6 +611,20 @@ def run_ask(
     if decision == "no_approved_source" and NO_APPROVED_SOURCE not in answer:
         answer = f"{NO_APPROVED_SOURCE} {answer}".strip()
 
+    from backend.app.services.ask_history_service import derive_next_action_code
+
+    # Persist contract fields for ask-history listing.
+    run.result_json = {
+        **result,
+        "answer": answer,
+        "decision": decision,
+        "next_action": next_action,
+        "next_action_code": derive_next_action_code(next_action),
+        "assumptions": assumptions,
+        "source_status": source_status,
+    }
+    session.flush()
+
     return AskResponse(
         ask_run_id=run.id,
         query=query,
@@ -529,6 +646,7 @@ def run_ask(
         decision=decision,
         assumptions=assumptions,
         next_action=next_action,
+        next_action_code=derive_next_action_code(next_action),
         source_status=source_status,
     )
 

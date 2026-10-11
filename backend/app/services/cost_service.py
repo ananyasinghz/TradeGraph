@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from datetime import UTC, datetime
+from datetime import UTC, date, datetime
 from decimal import ROUND_HALF_UP, Decimal
 from typing import Any
 
@@ -13,7 +13,10 @@ from backend.app.core.errors import AppError
 from backend.app.data.models import CalculationSnapshot, TariffRate
 from backend.app.domain.trade import (
     CalculationSnapshotOut,
+    ComponentProvenanceOut,
     CustomsModeAvailability,
+    DutyStackLine,
+    DutyStructureOut,
     LandedCostBreakdown,
     LandedCostInput,
 )
@@ -159,24 +162,33 @@ def _formula_steps(
     currency: str,
     bcd_pct: Decimal,
     bcd: Decimal,
+    aidc_pct: Decimal,
+    aidc: Decimal,
+    health_pct: Decimal,
+    health: Decimal,
     sws_pct: Decimal,
     sws: Decimal,
     igst_pct: Decimal,
     igst: Decimal,
+    cc_pct: Decimal,
+    cc: Decimal,
     total_duties: Decimal,
     landed: Decimal,
 ) -> list[str]:
     return [
-        f"1. Assessable value = {assessable} {currency} (invoice / CIF base for this prototype)",
-        f"2. BCD = assessable x {bcd_pct}% = {bcd} {currency}",
-        f"3. SWS = BCD x {sws_pct}% = {sws} {currency}",
-        f"4. IGST = (assessable + BCD + SWS) x {igst_pct}% = {igst} {currency}",
-        f"5. Total duties/taxes = BCD + SWS + IGST = {total_duties} {currency}",
-        f"6. Landed cost = assessable + total duties/taxes = {landed} {currency}",
+        f"1. Assessable value (AV) = {assessable} {currency}",
+        f"2. BCD = AV x {bcd_pct}% = {bcd} {currency}",
+        f"3. Customs AIDC = AV x {aidc_pct}% = {aidc} {currency}",
+        f"4. Health CESS = AV x {health_pct}% = {health} {currency}",
+        f"5. SWS/SWC = BCD x {sws_pct}% = {sws} {currency}",
+        f"6. IGST = (AV + BCD + AIDC + Health + SWS) x {igst_pct}% = {igst} {currency}",
+        f"7. Compensation Cess = (AV + BCD + AIDC + Health + SWS) x {cc_pct}% = {cc} {currency}",
+        f"8. Total duties/taxes = {total_duties} {currency}",
+        f"9. Landed cost = AV + total duties = {landed} {currency}",
     ]
 
 
-ENGINE_VERSION = "in_duty.v1"
+ENGINE_VERSION = "in_duty.v2"
 
 
 def _inputs_dict(
@@ -206,6 +218,7 @@ def _inputs_dict(
         "tariff_version": tariff.version if tariff else None,
         "data_quality": tariff.data_quality if tariff else None,
         "calculation_engine_version": ENGINE_VERSION,
+        "selected_exemption_id": payload.selected_exemption_id,
     }
 
 
@@ -338,6 +351,58 @@ def diff_snapshots(
     )
 
 
+def _mfn_rates_from_tariff(tariff: TariffRate) -> dict[str, Decimal]:
+    from backend.app.services.component_provenance import flatten_rates
+
+    flat = flatten_rates(
+        dict(tariff.duty_components or {}),
+        fallback_bcd=float(tariff.rate),
+    )
+    return {k: Decimal(str(v)) for k, v in flat.items()}
+
+
+def _stack_lines(
+    results: list[Any],
+    *,
+    mfn_rates: dict[str, Decimal],
+    notification_labels: dict[str, str] | None = None,
+    components: dict[str, Any] | None = None,
+) -> list[DutyStackLine]:
+    from backend.app.services.component_provenance import extract_provenance
+
+    labels = notification_labels or {}
+    rate_key = {
+        "BCD": "bcd_pct",
+        "AIDC": "aidc_pct",
+        "CHCESS": "health_cess_pct",
+        "SWS": "sws_pct_of_bcd",
+        "IGST": "igst_pct",
+        "CC": "compensation_cess_pct",
+    }
+    prov = extract_provenance(components)
+    lines: list[DutyStackLine] = []
+    for r in results:
+        key = rate_key.get(r.code, "")
+        tariff_pct = mfn_rates.get(key, r.rate)
+        block = prov.get(key) or {}
+        lines.append(
+            DutyStackLine(
+                code=r.code,
+                display_name=r.display_name,
+                tariff_rate_pct=Decimal(str(tariff_pct)),
+                effective_rate_pct=Decimal(str(r.rate)),
+                amount=r.amount,
+                notification_sl=labels.get(r.code) or r.notification_sl,
+                component_key=key or None,
+                data_quality=str(block.get("data_quality") or None),
+                source_key=block.get("source_key"),
+                source_document_id=block.get("source_document_id"),
+                provenance_notes=block.get("notes"),
+            )
+        )
+    return lines
+
+
 def calculate_from_tariff(
     invoice_value: Decimal,
     currency: str,
@@ -348,16 +413,36 @@ def calculate_from_tariff(
     session: Session | None = None,
 ) -> LandedCostBreakdown:
     from backend.app.calculation.duty_components import calculate_india_import
+    from backend.app.services import exemption_service
 
-    components = dict(tariff.duty_components or {})
-    bcd_pct = _component(components, "bcd_pct", Decimal(tariff.rate))
-    sws_pct = _component(components, "sws_pct_of_bcd", Decimal("10"))
-    igst_pct = _component(components, "igst_pct", Decimal("5"))
+    mfn_rates = _mfn_rates_from_tariff(tariff)
+    effective_rates = dict(mfn_rates)
+    exemption_rule_id: str | None = None
+    exemption_label: str | None = None
+    notification_labels: dict[str, str] = {}
+
+    selected_id = payload.selected_exemption_id if payload else None
+    if selected_id and session is not None:
+        rule = exemption_service.get_exemption_rule(session, selected_id)
+        effective_rates = exemption_service.apply_effect_to_rates(
+            mfn_rates, dict(rule.effect_json or {})
+        )
+        exemption_rule_id = rule.id
+        exemption_label = exemption_service.notification_label(rule)
+        notification_labels["BCD"] = exemption_label
+
+    bcd_pct = effective_rates["bcd_pct"]
+    sws_pct = effective_rates["sws_pct_of_bcd"]
+    igst_pct = effective_rates["igst_pct"]
+    aidc_pct = effective_rates["aidc_pct"]
+    health_pct = effective_rates["health_cess_pct"]
+    cc_pct = effective_rates["compensation_cess_pct"]
 
     freight = payload.freight if payload and payload.freight is not None else Decimal("0")
     insurance = payload.insurance if payload and payload.insurance is not None else Decimal("0")
     assessable = _money(invoice_value + freight + insurance)
 
+    duty_stack: list[DutyStackLine] = []
     if tariff.destination.upper() == "IN":
         results, total_duties, landed = calculate_india_import(
             assessable_value=assessable,
@@ -365,17 +450,48 @@ def calculate_from_tariff(
             bcd_pct=bcd_pct,
             sws_pct_of_bcd=sws_pct,
             igst_pct=igst_pct,
+            aidc_pct=aidc_pct,
+            health_cess_pct=health_pct,
+            compensation_cess_pct=cc_pct,
+            notification_labels=notification_labels or None,
         )
         by_code = {r.code: r for r in results}
         bcd = by_code["BCD"].amount
         sws = by_code["SWS"].amount
         igst = by_code["IGST"].amount
+        aidc = by_code["AIDC"].amount
+        health = by_code["CHCESS"].amount
+        cc = by_code["CC"].amount
+        duty_stack = _stack_lines(
+            results,
+            mfn_rates=mfn_rates,
+            notification_labels=notification_labels,
+            components=dict(tariff.duty_components or {}),
+        )
+        mfn_results, mfn_total, _ = calculate_india_import(
+            assessable_value=assessable,
+            currency=currency.upper(),
+            bcd_pct=mfn_rates["bcd_pct"],
+            sws_pct_of_bcd=mfn_rates["sws_pct_of_bcd"],
+            igst_pct=mfn_rates["igst_pct"],
+            aidc_pct=mfn_rates["aidc_pct"],
+            health_cess_pct=mfn_rates["health_cess_pct"],
+            compensation_cess_pct=mfn_rates["compensation_cess_pct"],
+        )
+        del mfn_results
+        mfn_total_duties = mfn_total
+        duty_savings = _money(mfn_total_duties - total_duties)
     else:
         bcd = _money(assessable * bcd_pct / Decimal("100"))
+        aidc = _money(assessable * aidc_pct / Decimal("100"))
+        health = _money(assessable * health_pct / Decimal("100"))
         sws = _money(bcd * sws_pct / Decimal("100"))
-        igst = _money((assessable + bcd + sws) * igst_pct / Decimal("100"))
-        total_duties = _money(bcd + sws + igst)
+        igst = _money((assessable + bcd + aidc + health + sws) * igst_pct / Decimal("100"))
+        cc = _money((assessable + bcd + aidc + health + sws) * cc_pct / Decimal("100"))
+        total_duties = _money(bcd + aidc + health + sws + igst + cc)
         landed = _money(assessable + total_duties)
+        mfn_total_duties = total_duties
+        duty_savings = Decimal("0.00")
 
     warnings = _warnings_for_input(payload, incoterm)
     incomplete = bool(warnings) or not is_verified_quality(tariff.data_quality)
@@ -387,8 +503,10 @@ def calculate_from_tariff(
     assumptions.append(f"Incoterm treated as {incoterm.upper()} for assessable base.")
     if tariff.destination.upper() == "IN":
         assumptions.append(
-            "Duty components calculated via IN jurisdictional engine (BCD/SWS/IGST)."
+            "Duty components via IN engine (BCD / AIDC / Health CESS / SWS / IGST / CC)."
         )
+    if exemption_label:
+        assumptions.append(f"Exemption applied: {exemption_label}.")
     if tariff.data_quality == "illustrative":
         assumptions.append("Tariff rule is illustrative / demonstration data.")
 
@@ -444,12 +562,18 @@ def calculate_from_tariff(
         bcd=bcd,
         sws=sws,
         igst=igst,
+        aidc=aidc,
+        health_cess=health,
+        compensation_cess=cc,
         total_duties_taxes=total_duties,
         landed_cost=landed,
         currency=currency.upper(),
         bcd_rate_pct=bcd_pct,
         sws_pct_of_bcd=sws_pct,
         igst_rate_pct=igst_pct,
+        aidc_rate_pct=aidc_pct,
+        health_cess_rate_pct=health_pct,
+        compensation_cess_rate_pct=cc_pct,
         tariff_rate_id=tariff.id,
         data_quality=tariff.data_quality,
         source_document_id=tariff.source_document_id,
@@ -461,10 +585,16 @@ def calculate_from_tariff(
             currency=currency.upper(),
             bcd_pct=bcd_pct,
             bcd=bcd,
+            aidc_pct=aidc_pct,
+            aidc=aidc,
+            health_pct=health_pct,
+            health=health,
             sws_pct=sws_pct,
             sws=sws,
             igst_pct=igst_pct,
             igst=igst,
+            cc_pct=cc_pct,
+            cc=cc,
             total_duties=total_duties,
             landed=landed,
         ),
@@ -474,6 +604,136 @@ def calculate_from_tariff(
         assumptions=assumptions,
         customs_mode_available=avail.customs_mode_available if avail else None,
         customs_mode_blockers=list(avail.customs_mode_blockers) if avail else [],
+        duty_stack=duty_stack,
+        exemption_rule_id=exemption_rule_id,
+        exemption_label=exemption_label,
+        mfn_total_duties=mfn_total_duties,
+        duty_savings=duty_savings,
+    )
+
+
+def build_duty_structure(
+    session: Session,
+    *,
+    hs_code: str,
+    origin: str,
+    destination: str,
+    as_of: Any,
+    assessable_value: Decimal,
+    currency: str = "INR",
+    selected_exemption_id: str | None = None,
+    shipment_id: str | None = None,
+) -> DutyStructureOut:
+    """ICEGATE-style duty stack + ranked exemption Sl. Nos. for a confirmed HS."""
+    from backend.app.services import exemption_service
+
+    tariff = resolve_applicable_tariff(
+        session,
+        hs_code=hs_code,
+        origin=origin,
+        destination=destination,
+        as_of=as_of,
+    )
+    payload = LandedCostInput(
+        hs_code=hs_code,
+        origin=origin,
+        destination=destination,
+        as_of=as_of,
+        invoice_value=assessable_value,
+        currency=currency,
+        incoterm="CIF",
+        freight=Decimal("0"),
+        insurance=Decimal("0"),
+        requested_mode="estimate",
+        shipment_id=shipment_id,
+        persist_snapshot=False,
+        selected_exemption_id=selected_exemption_id,
+    )
+    breakdown = calculate_from_tariff(
+        assessable_value,
+        currency,
+        tariff,
+        incoterm="CIF",
+        payload=payload,
+        session=session,
+    )
+    exemptions = exemption_service.list_applicable_exemptions(
+        session,
+        hs_code=hs_code,
+        origin=origin,
+        destination=destination,
+        as_of=as_of,
+        shipment_id=shipment_id,
+    )
+    from backend.app.services.component_provenance import (
+        COMPONENT_KEYS,
+        coverage_flags,
+        extract_provenance,
+    )
+
+    components = dict(tariff.duty_components or {})
+    prov = extract_provenance(components)
+    component_sources = [
+        ComponentProvenanceOut(
+            component_key=key,
+            value=(
+                Decimal(str(block["value"]))
+                if block.get("value") is not None
+                else None
+            ),
+            data_quality=str(block.get("data_quality") or "missing"),
+            source_key=block.get("source_key"),
+            source_document_id=block.get("source_document_id"),
+            effective_from=(
+                date.fromisoformat(str(block["effective_from"]))
+                if block.get("effective_from")
+                else None
+            ),
+            notes=block.get("notes"),
+        )
+        for key in COMPONENT_KEYS
+        for block in [prov.get(key) or {}]
+    ]
+    preferential_status = None
+    preferential_blocked_reason = None
+    if shipment_id:
+        from backend.app.services import fta_service
+
+        fta = fta_service.check_fta(
+            session,
+            hs_code=hs_code,
+            origin=origin,
+            destination=destination,
+            as_of=as_of,
+            shipment_id=shipment_id,
+        )
+        preferential_status = fta.status
+        if fta.status != "eligible":
+            preferential_blocked_reason = (
+                "MFN only — preference not claimed/proven "
+                f"(FTA status={fta.status})."
+            )
+    return DutyStructureOut(
+        hs_code=hs_code,
+        origin=origin.upper(),
+        destination=destination.upper(),
+        as_of=as_of,
+        assessable_value=breakdown.assessable_value,
+        currency=breakdown.currency,
+        tariff_rate_id=breakdown.tariff_rate_id,
+        data_quality=breakdown.data_quality,
+        stack=list(breakdown.duty_stack),
+        component_sources=component_sources,
+        coverage=coverage_flags(components),
+        total_duties=breakdown.total_duties_taxes,
+        landed_cost=breakdown.landed_cost,
+        mfn_total_duties=breakdown.mfn_total_duties or breakdown.total_duties_taxes,
+        duty_savings=breakdown.duty_savings or Decimal("0"),
+        selected_exemption_id=breakdown.exemption_rule_id,
+        selected_exemption_label=breakdown.exemption_label,
+        exemptions=exemptions,
+        preferential_status=preferential_status,
+        preferential_blocked_reason=preferential_blocked_reason,
     )
 
 

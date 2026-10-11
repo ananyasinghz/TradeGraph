@@ -3,6 +3,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
+from backend.app.api.routes.admin import router as admin_router
 from backend.app.api.routes.agreements import router as agreements_router
 from backend.app.api.routes.ask import router as ask_router
 from backend.app.api.routes.auth import router as auth_router
@@ -12,18 +13,23 @@ from backend.app.api.routes.classification import router as classification_route
 from backend.app.api.routes.corridors import router as corridors_router
 from backend.app.api.routes.dashboard import router as dashboard_router
 from backend.app.api.routes.documents import router as documents_router
+from backend.app.api.routes.duty import router as duty_router
 from backend.app.api.routes.eval import router as eval_router
 from backend.app.api.routes.health import router as health_router
 from backend.app.api.routes.impacts import router as impacts_router
 from backend.app.api.routes.ingest import router as ingest_router
 from backend.app.api.routes.jobs import router as jobs_router
+from backend.app.api.routes.parties import router as parties_router
+from backend.app.api.routes.public import router as public_router
 from backend.app.api.routes.retrieval import router as retrieval_router
 from backend.app.api.routes.scenarios import router as scenarios_router
+from backend.app.api.routes.search import router as search_router
 from backend.app.api.routes.shipments import router as shipments_router
 from backend.app.api.routes.source_connections import router as source_connections_router
 from backend.app.api.routes.sources import router as sources_router
 from backend.app.api.routes.system import router as system_router
 from backend.app.api.routes.tariffs import router as tariffs_router
+from backend.app.api.routes.templates import router as templates_router
 from backend.app.api.routes.watchlist import router as watchlist_router
 from backend.app.core.config import Settings, get_settings
 from backend.app.core.errors import register_exception_handlers
@@ -66,7 +72,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     origins = _cors_origins(resolved)
     application.add_middleware(
         CORSMiddleware,
-        allow_origins=origins or list(_DEFAULT_CORS),
+        allow_origins=origins,
         allow_credentials=True,
         allow_methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
         allow_headers=["Authorization", "Content-Type", "X-Organization-Id", "X-Request-ID"],
@@ -81,11 +87,17 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     application.include_router(system_router, prefix=prefix)
     application.include_router(corridors_router, prefix=prefix)
     application.include_router(auth_router, prefix=prefix)
+    application.include_router(admin_router, prefix=prefix)
     application.include_router(dashboard_router, prefix=prefix)
     application.include_router(tariffs_router, prefix=prefix)
     application.include_router(calculate_router, prefix=prefix)
     application.include_router(calculations_router, prefix=prefix)
+    application.include_router(duty_router, prefix=prefix)
     application.include_router(shipments_router, prefix=prefix)
+    application.include_router(parties_router, prefix=prefix)
+    application.include_router(templates_router, prefix=prefix)
+    application.include_router(search_router, prefix=prefix)
+    application.include_router(public_router, prefix=prefix)
     application.include_router(scenarios_router, prefix=prefix)
     application.include_router(impacts_router, prefix=prefix)
     application.include_router(classification_router, prefix=prefix)

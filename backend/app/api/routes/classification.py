@@ -26,4 +26,5 @@ def suggest_candidates(
         product_text=payload.product_text,
         chapter=payload.chapter,
         limit=payload.limit,
+        allow_ollama=True,
     )
